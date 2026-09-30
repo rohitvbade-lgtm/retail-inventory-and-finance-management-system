@@ -113,6 +113,10 @@ export class ApiService {
     return this.http.patch<DiscountRule>(`${this.baseUrl}/discounts/${id}/toggle`, {});
   }
 
+  updateDiscountRule(id: number, data: Partial<DiscountRule>): Observable<DiscountRule> {
+    return this.http.patch<DiscountRule>(`${this.baseUrl}/discounts/${id}`, data);
+  }
+
   deleteDiscountRule(id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.baseUrl}/discounts/${id}`);
   }

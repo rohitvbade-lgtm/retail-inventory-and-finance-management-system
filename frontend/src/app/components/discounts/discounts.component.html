@@ -1,329 +1,438 @@
-<div class="discounts-layout">
-  <!-- LEFT: AI DISCOUNT MACHINE CHAT -->
-  <div class="chat-section">
-    <div class="chat-card">
-      <div class="chat-header">
-        <div class="bot-identity">
-          <div class="bot-avatar">🤖</div>
-          <div>
-            <h3>AI Discount Machine</h3>
-            <span class="bot-status">
-              <span class="status-dot"></span> Conversational Rule Generator
-            </span>
-          </div>
-        </div>
+<div class="discounts-container">
+  <!-- TOP SUB-NAVBAR & VIEW SWITCHER -->
+  <div class="discounts-top-bar">
+    <div class="view-switch-tabs">
+      <button
+        class="view-tab"
+        [class.active]="activeView === 'codes'"
+        (click)="setActiveView('codes')"
+      >
+        <span class="v-icon">🏷️</span>
+        <span class="v-title">Discount Codes Directory</span>
+        <span class="v-badge">{{ activeCount }} Active / {{ expiredCount }} Expired</span>
+      </button>
 
-        <button class="btn-api-toggle" (click)="showApiKeyInput = !showApiKeyInput">
-          ⚙️ {{ showApiKeyInput ? 'Hide Settings' : 'AI Settings' }}
-        </button>
-      </div>
+      <button
+        class="view-tab"
+        [class.active]="activeView === 'ai'"
+        (click)="setActiveView('ai')"
+      >
+        <span class="v-icon">🤖</span>
+        <span class="v-title">AI Discount Machine</span>
+        <span class="v-sub">Interactive Prompt Engine</span>
+      </button>
 
-      <!-- Optional API Key Settings -->
-      <div *ngIf="showApiKeyInput" class="api-key-panel">
-        <label>Google Gemini API Key (Optional)</label>
-        <div class="api-key-row">
-          <input
-            type="password"
-            placeholder="AIzaSy... (Leave empty to use built-in deterministic NLU parser)"
-            [(ngModel)]="apiKey"
-            (change)="saveApiKey()"
-          />
-          <button class="btn-save-key" (click)="saveApiKey()">Save</button>
-        </div>
-        <small class="api-note">
-          💡 The system includes a built-in deterministic semantic parser that runs offline without an API key. Supplying a Gemini API key enables full LLM reasoning.
-        </small>
-      </div>
+      <button
+        class="view-tab split-tab"
+        [class.active]="activeView === 'split'"
+        (click)="setActiveView('split')"
+      >
+        <span class="v-icon">🔲</span>
+        <span class="v-title">Side-by-Side</span>
+      </button>
+    </div>
 
-      <!-- Chat Messages Scroll Container -->
-      <div class="chat-messages" id="chat-scroll-container">
-        <div *ngFor="let msg of chatMessages" class="message-row" [class.user-row]="msg.role === 'user'">
-          <div class="msg-avatar">
-            {{ msg.role === 'user' ? '👤' : '🤖' }}
-          </div>
-
-          <div class="msg-bubble">
-            <div class="msg-content">{{ msg.content }}</div>
-
-            <!-- Structured Discount Rule Card (if assistant created a rule) -->
-            <div *ngIf="msg.structured_action" class="rule-preview-card">
-              <div class="rule-card-header">
-                <span class="preview-badge">✨ NEW RULE ACTIVATED</span>
-                <span class="preview-type">
-                  {{ msg.structured_action.discount_type === 'PERCENTAGE' ? (msg.structured_action.value + '% OFF') : ('$' + msg.structured_action.value + ' OFF') }}
-                </span>
-              </div>
-              <h4 class="preview-title">{{ msg.structured_action.name }}</h4>
-              <div class="preview-meta">
-                <div>
-                  <strong>Scope:</strong> {{ msg.structured_action.applicability }}
-                  <span *ngIf="msg.structured_action.target_categories?.length > 0">
-                    ({{ msg.structured_action.target_categories.join(', ') }})
-                  </span>
-                  <span *ngIf="msg.structured_action.target_products?.length > 0">
-                    ({{ msg.structured_action.target_products.join(', ') }})
-                  </span>
-                </div>
-                <div><strong>Schedule:</strong> {{ msg.structured_action.schedule_type }}</div>
-                <div *ngIf="msg.structured_action.min_order_amount > 0">
-                  <strong>Min Spend:</strong> ${{ msg.structured_action.min_order_amount }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div *ngIf="sendingMessage" class="message-row">
-          <div class="msg-avatar">🤖</div>
-          <div class="msg-bubble typing-indicator">
-            <span></span><span></span><span></span>
-            <small>AI is interpreting prompt and configuring discount objects...</small>
-          </div>
-        </div>
-      </div>
-
-      <!-- Suggested Prompts Bar -->
-      <div class="prompts-suggestion-bar">
-        <span class="prompt-hint">Quick Prompts:</span>
-        <div class="suggestion-chips">
-          <button
-            *ngFor="let p of suggestedPrompts"
-            class="chip-prompt"
-            (click)="usePrompt(p)"
-          >
-            "{{ p }}"
-          </button>
-        </div>
-      </div>
-
-      <!-- Chat Input Field -->
-      <div class="chat-input-box">
-        <input
-          type="text"
-          placeholder="E.g., Give 15% discount on all dairy products this weekend..."
-          [(ngModel)]="promptInput"
-          (keyup.enter)="sendPrompt()"
-          [disabled]="sendingMessage"
-        />
-        <button
-          class="btn-send-prompt"
-          [disabled]="!promptInput.trim() || sendingMessage"
-          (click)="sendPrompt()"
-        >
-          Send Command
-        </button>
-      </div>
+    <div class="top-bar-actions">
+      <button class="btn-create-code-primary" (click)="openCreateModal()">
+        + Create Discount Code
+      </button>
     </div>
   </div>
 
-  <!-- RIGHT: RULES MANAGER & DETERMINISTIC ENGINE SIMULATOR -->
-  <div class="management-section">
-    <!-- Active / Expired Discount Rules Card -->
-    <div class="rules-card">
-      <div class="rules-card-header">
-        <div class="rules-tabs">
-          <button
-            class="tab-btn"
-            [class.active]="selectedTab === 'active'"
-            (click)="selectTab('active')"
-          >
-            🟢 Active Codes ({{ activeCount }})
-          </button>
-          <button
-            class="tab-btn"
-            [class.active]="selectedTab === 'expired'"
-            (click)="selectTab('expired')"
-          >
-            ⌛ Expired / Disabled ({{ expiredCount }})
-          </button>
-          <button
-            class="tab-btn"
-            [class.active]="selectedTab === 'all'"
-            (click)="selectTab('all')"
-          >
-            All Codes ({{ totalRules }})
-          </button>
-        </div>
-
-        <div class="header-actions">
-          <button class="btn-create-code" (click)="openCreateModal()">+ Create Code</button>
-          <button class="btn-refresh" (click)="loadRules()">↻</button>
-        </div>
-      </div>
-
-      <!-- Search / Filter Codes -->
-      <div class="rules-search-bar">
-        <input
-          type="text"
-          placeholder="Filter codes or rules (e.g. DAIRY15)..."
-          [ngModel]="rulesSearchQuery"
-          (ngModelChange)="onRulesSearchInput($event)"
-        />
-        <button *ngIf="rulesSearchQuery" class="clear-btn" (click)="clearRulesSearch()">✕</button>
-      </div>
-
-      <div class="rules-list">
-        <div
-          *ngFor="let r of rules"
-          class="rule-item"
-          [class.inactive]="!r.is_active"
-          [class.expired]="r.is_expired"
-        >
-          <div class="rule-top">
-            <div class="rule-info">
-              <div class="code-and-title">
-                <div class="code-chip-box" *ngIf="r.code">
-                  <span class="code-chip">{{ r.code }}</span>
-                  <button
-                    class="btn-copy-code"
-                    (click)="copyCode(r.code)"
-                    title="Click to copy promo code"
-                  >
-                    {{ copiedCode === r.code ? '✓ Copied' : '📋' }}
-                  </button>
-                </div>
-                <span class="rule-name">{{ r.name }}</span>
-              </div>
-              <p class="rule-desc" *ngIf="r.description">{{ r.description }}</p>
-            </div>
-            <div class="rule-action-controls">
-              <span
-                class="status-pill"
-                [class.pill-active]="r.status === 'ACTIVE'"
-                [class.pill-expired]="r.status === 'EXPIRED'"
-                [class.pill-inactive]="r.status === 'INACTIVE'"
-                [class.pill-scheduled]="r.status === 'SCHEDULED'"
-              >
-                {{ r.status }}
+  <!-- MAIN BODY LAYOUT -->
+  <div
+    class="discounts-body-layout"
+    [class.view-codes-only]="activeView === 'codes'"
+    [class.view-ai-only]="activeView === 'ai'"
+    [class.view-split]="activeView === 'split'"
+  >
+    <!-- LEFT / AI CHAT & SIMULATOR SECTION (visible in 'ai' or 'split' view) -->
+    <div class="chat-section" *ngIf="activeView === 'ai' || activeView === 'split'">
+      <div class="chat-card">
+        <div class="chat-header">
+          <div class="bot-identity">
+            <div class="bot-avatar">🤖</div>
+            <div>
+              <h3>AI Discount Machine</h3>
+              <span class="bot-status">
+                <span class="status-dot"></span> Conversational Rule Generator
               </span>
-
-              <label class="switch" title="Toggle active status">
-                <input type="checkbox" [checked]="r.is_active" (change)="toggleRule(r)" />
-                <span class="slider round"></span>
-              </label>
-              <button class="btn-delete-rule" (click)="deleteRule(r)" title="Delete rule">✕</button>
             </div>
           </div>
 
-          <div class="rule-badges">
-            <span class="badge-value">
-              {{ r.discount_type === 'PERCENTAGE' ? (r.value + '% OFF') : ('$' + r.value + ' OFF') }}
-            </span>
-            <span class="badge-scope">{{ r.applicability }}</span>
-            <span
-              class="badge-schedule"
-              [class.weekend]="r.schedule_type === 'WEEKEND'"
-              [class.weekday]="r.schedule_type === 'WEEKDAY'"
-            >
-              ⏰ {{ r.schedule_type }}
-            </span>
-            <span *ngIf="r.min_order_amount > 0" class="badge-min">
-              Min ${{ r.min_order_amount }}
-            </span>
-            <span *ngIf="r.end_date" class="badge-date" [class.date-expired]="r.is_expired">
-              {{ r.is_expired ? 'Expired on ' + r.end_date : 'Expires ' + r.end_date }}
-            </span>
+          <button class="btn-api-toggle" (click)="showApiKeyInput = !showApiKeyInput">
+            ⚙️ {{ showApiKeyInput ? 'Hide Settings' : 'AI Settings' }}
+          </button>
+        </div>
+
+        <!-- Optional API Key Settings -->
+        <div *ngIf="showApiKeyInput" class="api-key-panel">
+          <label>Google Gemini API Key (Optional)</label>
+          <div class="api-key-row">
+            <input
+              type="password"
+              placeholder="AIzaSy... (Leave empty to use built-in deterministic NLU parser)"
+              [(ngModel)]="apiKey"
+              (change)="saveApiKey()"
+            />
+            <button class="btn-save-key" (click)="saveApiKey()">Save</button>
+          </div>
+          <small class="api-note">
+            💡 The system includes a built-in deterministic semantic parser that runs offline without an API key. Supplying a Gemini API key enables full LLM reasoning.
+          </small>
+        </div>
+
+        <!-- Chat Messages Scroll Container -->
+        <div class="chat-messages" id="chat-scroll-container">
+          <div *ngFor="let msg of chatMessages" class="message-row" [class.user-row]="msg.role === 'user'">
+            <div class="msg-avatar">
+              {{ msg.role === 'user' ? '👤' : '🤖' }}
+            </div>
+
+            <div class="msg-bubble">
+              <div class="msg-content">{{ msg.content }}</div>
+
+              <!-- Structured Discount Rule Card (if assistant created a rule) -->
+              <div *ngIf="msg.structured_action" class="rule-preview-card">
+                <div class="rule-card-header">
+                  <span class="preview-badge">✨ RULE ACTIVATED</span>
+                  <span class="preview-type">
+                    {{ msg.structured_action.discount_type === 'PERCENTAGE' ? (msg.structured_action.value + '% OFF') : ('$' + msg.structured_action.value + ' OFF') }}
+                  </span>
+                </div>
+                <h4 class="preview-title">{{ msg.structured_action.name }}</h4>
+                <div class="preview-meta">
+                  <div *ngIf="msg.structured_action.code">
+                    <strong>Promo Code:</strong> <span class="preview-code-tag">{{ msg.structured_action.code }}</span>
+                  </div>
+                  <div>
+                    <strong>Scope:</strong> {{ msg.structured_action.applicability }}
+                    <span *ngIf="msg.structured_action.target_categories?.length > 0">
+                      ({{ msg.structured_action.target_categories.join(', ') }})
+                    </span>
+                    <span *ngIf="msg.structured_action.target_products?.length > 0">
+                      ({{ msg.structured_action.target_products.join(', ') }})
+                    </span>
+                  </div>
+                  <div><strong>Schedule:</strong> {{ msg.structured_action.schedule_type }}</div>
+                  <div *ngIf="msg.structured_action.min_order_amount > 0">
+                    <strong>Min Spend:</strong> ${{ msg.structured_action.min_order_amount }}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="rule-created-by">
-            <small>{{ r.created_by }}</small>
+          <div *ngIf="sendingMessage" class="message-row">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-bubble typing-indicator">
+              <span></span><span></span><span></span>
+              <small>AI is checking database for duplicates and configuring rule...</small>
+            </div>
           </div>
         </div>
 
-        <div *ngIf="rules.length === 0 && !loadingRules" class="empty-rules">
-          <p>
-            No {{ selectedTab === 'active' ? 'active' : selectedTab === 'expired' ? 'expired or disabled' : '' }} discount codes found.
-          </p>
+        <!-- Suggested Prompts Bar -->
+        <div class="prompts-suggestion-bar">
+          <span class="prompt-hint">Quick Prompts:</span>
+          <div class="suggestion-chips">
+            <button
+              *ngFor="let p of suggestedPrompts"
+              class="chip-prompt"
+              (click)="usePrompt(p)"
+            >
+              "{{ p }}"
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Input Field -->
+        <div class="chat-input-box">
+          <input
+            type="text"
+            placeholder="E.g., Give 15% discount on all dairy products this weekend..."
+            [(ngModel)]="promptInput"
+            (keyup.enter)="sendPrompt()"
+            [disabled]="sendingMessage"
+          />
+          <button
+            class="btn-send-prompt"
+            [disabled]="!promptInput.trim() || sendingMessage"
+            (click)="sendPrompt()"
+          >
+            Send Command
+          </button>
         </div>
       </div>
 
-      <!-- Rules Pagination -->
-      <div class="pagination-bar" *ngIf="totalPages > 1 && !loadingRules">
-        <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
-          ← Previous
-        </button>
-        <span class="page-info">
-          Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong> ({{ totalRules }} codes)
-        </span>
-        <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
-          Next →
-        </button>
+      <!-- Test Simulator (Shown in AI view) -->
+      <div class="sandbox-card" *ngIf="activeView === 'ai'">
+        <div class="sandbox-header">
+          <div>
+            <h4>🔬 Discount Engine Simulator</h4>
+            <p>Test how the deterministic engine evaluates active rules against a basket</p>
+          </div>
+          <button class="btn-run-sim" [disabled]="evaluatingSim" (click)="runSimulation()">
+            {{ evaluatingSim ? 'Calculating...' : 'Run Test' }}
+          </button>
+        </div>
+
+        <div class="sandbox-controls">
+          <div class="control-group">
+            <label>Simulation Day</label>
+            <div class="sim-day-radios">
+              <label>
+                <input type="radio" name="simDay" value="WEEKEND" [(ngModel)]="simSchedule" />
+                Weekend (Sat)
+              </label>
+              <label>
+                <input type="radio" name="simDay" value="WEEKDAY" [(ngModel)]="simSchedule" />
+                Weekday (Wed)
+              </label>
+              <label>
+                <input type="radio" name="simDay" value="ALWAYS" [(ngModel)]="simSchedule" />
+                Today
+              </label>
+            </div>
+          </div>
+
+          <div class="basket-selection">
+            <label>Sample Cart Items</label>
+            <div class="basket-items-grid">
+              <div *ngFor="let p of products.slice(0, 6)" class="basket-item-row">
+                <span class="basket-item-name">{{ p.name }} (${{ p.price.toFixed(2) }})</span>
+                <div class="basket-qty-input">
+                  <button
+                    type="button"
+                    (click)="setSimQty(p.id, getSimQty(p.id) - 1)"
+                    [disabled]="getSimQty(p.id) <= 0"
+                  >
+                    -
+                  </button>
+                  <span>{{ getSimQty(p.id) }}</span>
+                  <button type="button" (click)="setSimQty(p.id, getSimQty(p.id) + 1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="simResult" class="sim-results-box">
+          <div class="sim-totals-row">
+            <div>Subtotal: <b>${{ simResult.subtotal.toFixed(2) }}</b></div>
+            <div class="sim-discount-highlight">
+              Discount Applied: <b>-${{ simResult.total_discount.toFixed(2) }}</b>
+            </div>
+            <div>Net Total: <b>${{ simResult.total.toFixed(2) }}</b></div>
+          </div>
+
+          <div *ngIf="simResult.applied_discounts.length > 0" class="sim-rules-breakdown">
+            <strong>Applied Rules:</strong>
+            <ul>
+              <li *ngFor="let d of simResult.applied_discounts">
+                <b>{{ d.rule_name }}</b> ({{ d.applied_to }}): -${{ d.discount_amount.toFixed(2) }}
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Deterministic Engine Sandbox / Test Simulator -->
-    <div class="sandbox-card">
-      <div class="sandbox-header">
-        <div>
-          <h4>🔬 Discount Engine Simulator</h4>
-          <p>Test how the deterministic engine evaluates active rules against a basket</p>
-        </div>
-        <button class="btn-run-sim" [disabled]="evaluatingSim" (click)="runSimulation()">
-          {{ evaluatingSim ? 'Calculating...' : 'Run Test' }}
-        </button>
-      </div>
+    <!-- RIGHT / DISCOUNT CODES DIRECTORY SECTION (visible in 'codes' or 'split' view) -->
+    <div class="management-section" *ngIf="activeView === 'codes' || activeView === 'split'">
+      <div class="rules-card">
+        <!-- Sub-Header: Active, Expired, All Tabs -->
+        <div class="rules-card-header">
+          <div class="rules-tabs">
+            <button
+              class="tab-btn"
+              [class.active]="selectedTab === 'active'"
+              (click)="selectTab('active')"
+            >
+              🟢 Active Codes ({{ activeCount }})
+            </button>
+            <button
+              class="tab-btn"
+              [class.active]="selectedTab === 'expired'"
+              (click)="selectTab('expired')"
+            >
+              ⌛ Expired / Disabled ({{ expiredCount }})
+            </button>
+            <button
+              class="tab-btn"
+              [class.active]="selectedTab === 'all'"
+              (click)="selectTab('all')"
+            >
+              All Codes ({{ totalRules }})
+            </button>
+          </div>
 
-      <div class="sandbox-controls">
-        <div class="control-group">
-          <label>Simulation Day</label>
-          <div class="sim-day-radios">
-            <label>
-              <input type="radio" name="simDay" value="WEEKEND" [(ngModel)]="simSchedule" />
-              Weekend (Sat)
-            </label>
-            <label>
-              <input type="radio" name="simDay" value="WEEKDAY" [(ngModel)]="simSchedule" />
-              Weekday (Wed)
-            </label>
-            <label>
-              <input type="radio" name="simDay" value="ALWAYS" [(ngModel)]="simSchedule" />
-              Today
-            </label>
+          <div class="header-actions">
+            <button class="btn-refresh" (click)="loadRules()" title="Refresh Codes">↻ Refresh</button>
           </div>
         </div>
 
-        <!-- Sample Basket Selection -->
-        <div class="basket-selection">
-          <label>Sample Cart Items (Adjust quantities)</label>
-          <div class="basket-items-grid">
-            <div *ngFor="let p of products.slice(0, 6)" class="basket-item-row">
-              <span class="basket-item-name">{{ p.name }} (${{ p.price.toFixed(2) }})</span>
-              <div class="basket-qty-input">
-                <button
-                  type="button"
-                  (click)="setSimQty(p.id, getSimQty(p.id) - 1)"
-                  [disabled]="getSimQty(p.id) <= 0"
+        <!-- Search / Filter Codes -->
+        <div class="rules-search-bar">
+          <input
+            type="text"
+            placeholder="Search promo codes, rule names, categories (e.g. DAIRY15)..."
+            [ngModel]="rulesSearchQuery"
+            (ngModelChange)="onRulesSearchInput($event)"
+          />
+          <button *ngIf="rulesSearchQuery" class="clear-btn" (click)="clearRulesSearch()">✕</button>
+        </div>
+
+        <!-- Rules List -->
+        <div class="rules-list">
+          <div
+            *ngFor="let r of rules"
+            class="rule-item"
+            [class.inactive]="!r.is_active"
+            [class.expired]="r.is_expired"
+          >
+            <div class="rule-top">
+              <div class="rule-info">
+                <div class="code-and-title">
+                  <div class="code-chip-box" *ngIf="r.code">
+                    <span class="code-chip">{{ r.code }}</span>
+                    <button
+                      class="btn-copy-code"
+                      (click)="copyCode(r.code)"
+                      title="Click to copy promo code"
+                    >
+                      {{ copiedCode === r.code ? '✓ Copied' : '📋' }}
+                    </button>
+                  </div>
+                  <span class="rule-name">{{ r.name }}</span>
+                </div>
+                <p class="rule-desc" *ngIf="r.description">{{ r.description }}</p>
+              </div>
+
+              <!-- Rule Action Controls: Toggle, Status, Expiry, Delete -->
+              <div class="rule-action-controls">
+                <span
+                  class="status-pill"
+                  [class.pill-active]="r.status === 'ACTIVE'"
+                  [class.pill-expired]="r.status === 'EXPIRED'"
+                  [class.pill-inactive]="r.status === 'INACTIVE'"
+                  [class.pill-scheduled]="r.status === 'SCHEDULED'"
                 >
-                  -
-                </button>
-                <span>{{ getSimQty(p.id) }}</span>
-                <button type="button" (click)="setSimQty(p.id, getSimQty(p.id) + 1)">+</button>
+                  {{ r.status }}
+                </span>
+
+                <!-- Disable / Enable Toggle Switch -->
+                <div class="toggle-control-group" title="Toggle active status">
+                  <label class="switch">
+                    <input type="checkbox" [checked]="r.is_active" (change)="toggleRule(r)" />
+                    <span class="slider round"></span>
+                  </label>
+                  <span class="switch-label">{{ r.is_active ? 'Enabled' : 'Disabled' }}</span>
+                </div>
+
+                <button class="btn-delete-rule" (click)="deleteRule(r)" title="Delete rule">✕</button>
               </div>
             </div>
+
+            <!-- Badges -->
+            <div class="rule-badges">
+              <span class="badge-value">
+                {{ r.discount_type === 'PERCENTAGE' ? (r.value + '% OFF') : ('$' + r.value + ' OFF') }}
+              </span>
+              <span class="badge-scope">{{ r.applicability }}</span>
+              <span
+                class="badge-schedule"
+                [class.weekend]="r.schedule_type === 'WEEKEND'"
+                [class.weekday]="r.schedule_type === 'WEEKDAY'"
+              >
+                ⏰ {{ r.schedule_type }}
+              </span>
+              <span *ngIf="r.min_order_amount > 0" class="badge-min">
+                Min ${{ r.min_order_amount }}
+              </span>
+              <span *ngIf="r.end_date" class="badge-date" [class.date-expired]="r.is_expired">
+                {{ r.is_expired ? 'Expired on ' + r.end_date : 'Expires ' + r.end_date }}
+              </span>
+              <span *ngIf="!r.end_date" class="badge-date">
+                No Expiry (Always active)
+              </span>
+            </div>
+
+            <!-- Expiry & Renewal Bar -->
+            <div class="rule-expiry-bar">
+              <div class="expiry-display">
+                <span class="expiry-icon">📅</span>
+                <span *ngIf="r.end_date">
+                  {{ r.is_expired ? 'Expired: ' + r.end_date : 'Expires: ' + r.end_date }}
+                </span>
+                <span *ngIf="!r.end_date">Ongoing / No Expiration Date</span>
+              </div>
+
+              <div class="expiry-actions">
+                <button
+                  class="btn-expiry-action"
+                  (click)="openExpiryPicker(r)"
+                >
+                  {{ editingExpiryRuleId === r.id ? 'Close' : '📅 Set/Change Expiry' }}
+                </button>
+                <button
+                  *ngIf="r.is_expired || !r.is_active"
+                  class="btn-quick-renew"
+                  (click)="quickRenew(r, 7)"
+                  title="Enable rule and extend expiry by 7 days"
+                >
+                  ⚡ Enable (+7d)
+                </button>
+                <button
+                  *ngIf="r.is_expired || !r.is_active"
+                  class="btn-quick-renew"
+                  (click)="quickRenew(r, 30)"
+                  title="Enable rule and extend expiry by 30 days"
+                >
+                  ⚡ Enable (+30d)
+                </button>
+              </div>
+            </div>
+
+            <!-- Inline Expiration Date Editor Panel -->
+            <div *ngIf="editingExpiryRuleId === r.id" class="expiry-editor-inline">
+              <label>Set New Expiration Date:</label>
+              <div class="editor-row">
+                <input
+                  type="date"
+                  [(ngModel)]="customExpiryInput"
+                />
+                <button class="btn-save-inline" (click)="saveCustomExpiry(r)">Save & Enable</button>
+                <button class="btn-opt-inline" (click)="quickRenew(r, 7)">+7 Days</button>
+                <button class="btn-opt-inline" (click)="quickRenew(r, 30)">+30 Days</button>
+                <button class="btn-opt-inline" (click)="setAlwaysActive(r)">No Expiry</button>
+                <button class="btn-cancel-inline" (click)="editingExpiryRuleId = null">✕</button>
+              </div>
+            </div>
+
+            <div class="rule-created-by">
+              <small>{{ r.created_by }}</small>
+            </div>
+          </div>
+
+          <div *ngIf="rules.length === 0 && !loadingRules" class="empty-rules">
+            <p>
+              No {{ selectedTab === 'active' ? 'active' : selectedTab === 'expired' ? 'expired or disabled' : '' }} discount codes found.
+            </p>
           </div>
         </div>
-      </div>
 
-      <!-- Simulation Result Output -->
-      <div *ngIf="simResult" class="sim-results-box">
-        <div class="sim-totals-row">
-          <div>Subtotal: <b>${{ simResult.subtotal.toFixed(2) }}</b></div>
-          <div class="sim-discount-highlight">
-            Discount Applied: <b>-${{ simResult.total_discount.toFixed(2) }}</b>
-          </div>
-          <div>Net Total: <b>${{ simResult.total.toFixed(2) }}</b></div>
-        </div>
-
-        <div *ngIf="simResult.applied_discounts.length > 0" class="sim-rules-breakdown">
-          <strong>Applied Rules by Engine:</strong>
-          <ul>
-            <li *ngFor="let d of simResult.applied_discounts">
-              <b>{{ d.rule_name }}</b> ({{ d.applied_to }}): -${{ d.discount_amount.toFixed(2) }}
-            </li>
-          </ul>
-        </div>
-        <div *ngIf="simResult.applied_discounts.length === 0" class="no-sim-discount">
-          No active discount rules qualified for this basket and day combination.
+        <!-- Rules Pagination -->
+        <div class="pagination-bar" *ngIf="totalPages > 1 && !loadingRules">
+          <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+            ← Previous
+          </button>
+          <span class="page-info">
+            Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong> ({{ totalRules }} codes)
+          </span>
+          <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+            Next →
+          </button>
         </div>
       </div>
     </div>
@@ -438,4 +547,3 @@
     </div>
   </div>
 </div>
-

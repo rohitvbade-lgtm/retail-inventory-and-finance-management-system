@@ -126,6 +126,44 @@ def toggle_discount_rule(rule_id: int, db: Session = Depends(get_db)):
     return format_rule_response(rule)
 
 
+@router.patch("/{rule_id}", response_model=DiscountRuleResponse)
+def update_discount_rule(rule_id: int, update_data: DiscountRuleUpdate, db: Session = Depends(get_db)):
+    rule = db.query(DiscountRule).filter(DiscountRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Discount rule not found")
+
+    if update_data.name is not None:
+        rule.name = update_data.name
+    if update_data.code is not None:
+        rule.code = update_data.code.strip().upper() if update_data.code.strip() else None
+    if update_data.description is not None:
+        rule.description = update_data.description
+    if update_data.discount_type is not None:
+        rule.discount_type = update_data.discount_type.upper()
+    if update_data.value is not None:
+        rule.value = update_data.value
+    if update_data.applicability is not None:
+        rule.applicability = update_data.applicability.upper()
+    if update_data.target_products is not None:
+        rule.target_products = json.dumps(update_data.target_products)
+    if update_data.target_categories is not None:
+        rule.target_categories = json.dumps(update_data.target_categories)
+    if update_data.min_order_amount is not None:
+        rule.min_order_amount = update_data.min_order_amount
+    if update_data.schedule_type is not None:
+        rule.schedule_type = update_data.schedule_type.upper()
+    if update_data.start_date is not None:
+        rule.start_date = update_data.start_date
+    if update_data.end_date is not None:
+        rule.end_date = update_data.end_date
+    if update_data.is_active is not None:
+        rule.is_active = update_data.is_active
+
+    db.commit()
+    db.refresh(rule)
+    return format_rule_response(rule)
+
+
 @router.delete("/{rule_id}")
 def delete_discount_rule(rule_id: int, db: Session = Depends(get_db)):
     rule = db.query(DiscountRule).filter(DiscountRule.id == rule_id).first()

@@ -333,9 +333,10 @@ Only output the JSON object, nothing else."""
                 "action_type": "TOGGLED_DISCOUNT"
             }
 
-        # Generate memorable promo code
+        # Generate memorable promo code candidate
         cat_prefix = ""
         target_cats = action_data.get("target_categories") or []
+        target_prods = action_data.get("target_products") or []
         if target_cats:
             cat_prefix = "".join(c for c in target_cats[0] if c.isalnum())[:5].upper()
         elif action_data.get("schedule_type") == "WEEKEND":
@@ -348,18 +349,110 @@ Only output the JSON object, nothing else."""
         val_int = int(action_data.get("value", 10.0))
         generated_code = f"{cat_prefix}{val_int}"
 
-        # Default action: create_discount_rule
+        # Check database for existing matching rule
+        existing_rules = db.query(DiscountRule).all()
+        matched_existing = None
+
+        cand_discount_type = (action_data.get("discount_type") or "PERCENTAGE").upper()
+        cand_value = float(action_data.get("value", 10.0))
+        cand_applicability = (action_data.get("applicability") or "ENTIRE_ORDER").upper()
+        cand_schedule = (action_data.get("schedule_type") or "ALWAYS").upper()
+        cand_min_spend = float(action_data.get("min_order_amount", 0.0))
+        cand_cats = sorted([c.strip().lower() for c in target_cats if c.strip()])
+        cand_prods = sorted([p.strip().lower() for p in target_prods if p.strip()])
+
+        for r in existing_rules:
+            r_cats = sorted([c.strip().lower() for c in r.get_target_categories() if c.strip()])
+            r_prods = sorted([p.strip().lower() for p in r.get_target_products() if p.strip()])
+            r_eff_code = r.get_effective_code().upper()
+
+            same_code = (r_eff_code == generated_code.upper())
+            same_type = (r.discount_type or "").upper() == cand_discount_type
+            same_val = abs(float(r.value or 0) - cand_value) < 0.01
+            same_app = (r.applicability or "").upper() == cand_applicability
+            same_sched = (r.schedule_type or "").upper() == cand_schedule
+            same_cats = (r_cats == cand_cats)
+            same_prods = (r_prods == cand_prods)
+            same_min = abs(float(r.min_order_amount or 0) - cand_min_spend) < 0.01
+
+            # Match if identical terms or same code with matching value/type
+            if (same_type and same_val and same_app and same_sched and same_cats and same_prods and same_min) or (same_code and same_val and same_type):
+                matched_existing = r
+                break
+
+        # If identical or matching rule already exists, re-enable & update timestamp
+        if matched_existing:
+            matched_existing.is_active = True
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+
+            # Update schedule / timestamps
+            if action_data.get("end_date"):
+                matched_existing.start_date = action_data.get("start_date") or today_str
+                matched_existing.end_date = action_data.get("end_date")
+            elif matched_existing.schedule_type == "DATE_RANGE" or any(w in original_prompt.lower() for w in ["until", "week", "season", "month", "tomorrow"]):
+                matched_existing.start_date = today_str
+                matched_existing.end_date = (now + timedelta(days=14)).strftime("%Y-%m-%d")
+            else:
+                # If rule had an old expired date, extend it
+                if matched_existing.end_date and matched_existing.end_date < today_str:
+                    matched_existing.end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+
+            db.commit()
+            db.refresh(matched_existing)
+
+            eff_code = matched_existing.get_effective_code()
+            unit = "%" if matched_existing.discount_type == "PERCENTAGE" else "$"
+            scope_desc = matched_existing.applicability
+            if matched_existing.applicability == "CATEGORY":
+                scope_desc = f"Category: {', '.join(matched_existing.get_target_categories())}"
+            elif matched_existing.applicability == "PRODUCT":
+                scope_desc = f"Products: {', '.join(matched_existing.get_target_products())}"
+            else:
+                scope_desc = "Entire Order"
+
+            sched_desc = {
+                "ALWAYS": "Anytime / All Days",
+                "WEEKEND": "Saturdays & Sundays",
+                "WEEKDAY": "Mondays to Fridays",
+                "DATE_RANGE": f"Active {matched_existing.start_date} to {matched_existing.end_date}"
+            }.get(matched_existing.schedule_type, matched_existing.schedule_type)
+            expiry_str = f"Expires on {matched_existing.end_date}" if matched_existing.end_date else f"Active on {sched_desc} (No hard expiry)"
+
+            reply = (
+                f"**[{engine_label}]**\n\n"
+                f"ℹ️ **Discount Code Already Present in Database!**\n\n"
+                f"I detected that rule **\"{matched_existing.name}\"** with promo code `{eff_code}` is already configured in your database.\n\n"
+                f"**No duplicate was added.** As requested, I have:\n"
+                f"* 🟢 **Re-enabled** the discount code (Status: **ACTIVE**)\n"
+                f"* 📅 **Updated expiration timestamp**: {expiry_str}\n"
+                f"* 🏷️ **Promo Code**: `{eff_code}` ({matched_existing.value:g}{unit} off, {scope_desc})\n\n"
+                f"Cashiers can enter promo code `{eff_code}` at checkout, or the deterministic discount engine will apply it automatically."
+            )
+            return {
+                "reply": reply,
+                "action_type": "RE_ENABLED_DISCOUNT",
+                "created_discount": cls._rule_to_dict(matched_existing)
+            }
+
+        # Otherwise, terms differ slightly -> Create new rule with unique code
+        unique_code = generated_code
+        suffix = 2
+        while any((r.code and r.code.upper() == unique_code.upper()) for r in existing_rules):
+            unique_code = f"{generated_code}_{suffix}"
+            suffix += 1
+
         rule = DiscountRule(
             name=action_data.get("name", "Store Discount"),
-            code=generated_code,
+            code=unique_code,
             description=action_data.get("description", original_prompt),
-            discount_type=action_data.get("discount_type", "PERCENTAGE"),
-            value=float(action_data.get("value", 10.0)),
-            applicability=action_data.get("applicability", "ENTIRE_ORDER"),
+            discount_type=cand_discount_type,
+            value=cand_value,
+            applicability=cand_applicability,
             target_categories=json.dumps(action_data.get("target_categories") or []),
             target_products=json.dumps(action_data.get("target_products") or []),
-            min_order_amount=float(action_data.get("min_order_amount", 0.0)),
-            schedule_type=action_data.get("schedule_type", "ALWAYS"),
+            min_order_amount=cand_min_spend,
+            schedule_type=cand_schedule,
             start_date=action_data.get("start_date"),
             end_date=action_data.get("end_date"),
             is_active=True,
@@ -386,16 +479,19 @@ Only output the JSON object, nothing else."""
             scope_label = "Entire Order"
 
         reply = (
-            f"**[{engine_label}]**\n"
-            f"Created and activated discount rule:\n\n"
+            f"**[{engine_label}]**\n\n"
+            f"Created and activated new discount rule:\n\n"
             f"**{rule.name}**\n"
-            f"* **Promo Code**: `{rule.get_effective_code()}`\n"
+            f"* **Promo Code**: `{rule.code}`\n"
             f"* **Discount**: {rule.value:g}{unit} off\n"
             f"* **Scope**: {scope_label}\n"
             f"* **Schedule**: {schedule_label}\n"
-            f"{f'* **Min Spend**: ${rule.min_order_amount:g}' if rule.min_order_amount > 0 else ''}\n\n"
-            f"The deterministic discount engine will automatically apply this to qualified invoices, or cashiers can apply code `{rule.get_effective_code()}`."
+            f"{f'* **Min Spend**: ${rule.min_order_amount:g}' if rule.min_order_amount > 0 else ''}\n"
         )
+        similar_rules = [r for r in existing_rules if (r.applicability == rule.applicability or (r.code and r.code.startswith(cat_prefix)))]
+        if similar_rules:
+            reply += f"\n*(Created as a distinct new promo code because the discount terms differ from existing codes in database.)*\n"
+        reply += f"\nThe deterministic discount engine will automatically apply this to qualified invoices, or cashiers can apply code `{rule.code}`."
 
         return {
             "reply": reply,

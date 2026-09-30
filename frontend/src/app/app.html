@@ -28,8 +28,13 @@
         <span>Finance & Sales</span>
       </a>
 
-      <a routerLink="/discounts" routerLinkActive="active-tab" class="nav-item highlight-tab">
-        <span class="icon">⚡</span>
+      <a routerLink="/discounts" [queryParams]="{view: 'codes'}" routerLinkActive="active-tab" class="nav-item">
+        <span class="icon">🏷️</span>
+        <span>Discount Codes</span>
+      </a>
+
+      <a routerLink="/discounts" [queryParams]="{view: 'ai'}" routerLinkActive="active-tab" class="nav-item highlight-tab">
+        <span class="icon">🤖</span>
         <span>AI Discount Machine</span>
       </a>
     </nav>

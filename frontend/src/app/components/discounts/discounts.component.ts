@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
@@ -20,6 +21,11 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DiscountsComponent implements OnInit, OnDestroy {
+  // View mode switcher: 'codes' (full codes directory), 'ai' (AI chat engine), 'split' (side-by-side)
+  activeView: 'codes' | 'ai' | 'split' = 'codes';
+  editingExpiryRuleId: number | null = null;
+  customExpiryInput: string = '';
+
   chatMessages: ChatMessage[] = [];
   promptInput: string = '';
   apiKey: string = '';
@@ -78,12 +84,24 @@ export class DiscountsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) this.apiKey = savedKey;
+
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      if (params['view'] === 'ai') {
+        this.activeView = 'ai';
+      } else if (params['view'] === 'codes') {
+        this.activeView = 'codes';
+      } else if (params['view'] === 'split') {
+        this.activeView = 'split';
+      }
+      this.cdr.markForCheck();
+    });
 
     this.rulesSearchSubject
       .pipe(
@@ -323,29 +341,6 @@ export class DiscountsComponent implements OnInit, OnDestroy {
     });
   }
 
-  toggleRule(rule: DiscountRule): void {
-    this.api.toggleDiscountRule(rule.id).subscribe({
-      next: (updated) => {
-        rule.is_active = updated.is_active;
-        this.loadRules();
-        this.cdr.markForCheck();
-      },
-      error: (err) => console.error('Failed to toggle rule', err)
-    });
-  }
-
-  deleteRule(rule: DiscountRule): void {
-    if (confirm(`Delete rule '${rule.name}'?`)) {
-      this.api.deleteDiscountRule(rule.id).subscribe({
-        next: () => {
-          this.loadRules();
-          this.cdr.markForCheck();
-        },
-        error: (err) => console.error('Failed to delete rule', err)
-      });
-    }
-  }
-
   // Simulator test
   runSimulation(): void {
     const items = Object.entries(this.simSelectedProductIds)
@@ -400,6 +395,99 @@ export class DiscountsComponent implements OnInit, OnDestroy {
 
   getSimQty(productId: number): number {
     return this.simSelectedProductIds[productId] || 0;
+  }
+
+  setActiveView(view: 'codes' | 'ai' | 'split'): void {
+    this.activeView = view;
+    this.cdr.markForCheck();
+  }
+
+  toggleRule(r: DiscountRule): void {
+    const originalState = r.is_active;
+    this.api.toggleDiscountRule(r.id).subscribe({
+      next: (updated) => {
+        r.is_active = updated.is_active;
+        r.status = updated.status;
+        r.is_expired = updated.is_expired;
+        this.loadRules();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Failed to toggle rule', err);
+        r.is_active = originalState;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  deleteRule(r: DiscountRule): void {
+    if (!confirm(`Are you sure you want to delete discount rule "${r.name}" (${r.code || 'No code'})?`)) {
+      return;
+    }
+    this.api.deleteDiscountRule(r.id).subscribe({
+      next: () => {
+        this.loadRules();
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error('Failed to delete rule', err)
+    });
+  }
+
+  quickRenew(r: DiscountRule, days: number): void {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + days);
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    this.api.updateDiscountRule(r.id, {
+      is_active: true,
+      end_date: dateStr
+    }).subscribe({
+      next: () => {
+        this.editingExpiryRuleId = null;
+        this.loadRules();
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error('Failed to quick renew rule', err)
+    });
+  }
+
+  setAlwaysActive(r: DiscountRule): void {
+    this.api.updateDiscountRule(r.id, {
+      is_active: true,
+      end_date: ''
+    }).subscribe({
+      next: () => {
+        this.editingExpiryRuleId = null;
+        this.loadRules();
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error('Failed to set always active', err)
+    });
+  }
+
+  openExpiryPicker(r: DiscountRule): void {
+    if (this.editingExpiryRuleId === r.id) {
+      this.editingExpiryRuleId = null;
+    } else {
+      this.editingExpiryRuleId = r.id;
+      this.customExpiryInput = r.end_date || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    }
+    this.cdr.markForCheck();
+  }
+
+  saveCustomExpiry(r: DiscountRule): void {
+    if (!this.customExpiryInput) return;
+    this.api.updateDiscountRule(r.id, {
+      is_active: true,
+      end_date: this.customExpiryInput
+    }).subscribe({
+      next: () => {
+        this.editingExpiryRuleId = null;
+        this.loadRules();
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error('Failed to save custom expiry', err)
+    });
   }
 
   private scrollToBottom(): void {

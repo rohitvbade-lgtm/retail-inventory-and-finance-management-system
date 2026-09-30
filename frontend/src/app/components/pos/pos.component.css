@@ -1,8 +1,10 @@
 .pos-container {
   display: grid;
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: 1fr 440px;
   gap: 1.5rem;
-  height: calc(100vh - 130px);
+  height: calc(100vh - 100px);
+  min-height: 0;
+  max-height: calc(100vh - 100px);
   overflow: hidden;
 }
 
@@ -10,6 +12,7 @@
   .pos-container {
     grid-template-columns: 1fr;
     height: auto;
+    max-height: none;
     overflow: visible;
   }
 }
@@ -20,6 +23,8 @@
   flex-direction: column;
   gap: 1rem;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -242,8 +247,11 @@
 /* BILLING SECTION */
 .billing-section {
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .billing-card {
@@ -253,7 +261,32 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   padding: 1.25rem;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+.billing-card::-webkit-scrollbar {
+  width: 10px;
+}
+
+.billing-card::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.billing-card::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.billing-card::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
 }
 
 .billing-header {
@@ -375,12 +408,16 @@
 
 /* Cart items list */
 .cart-items-list {
-  flex: 1;
+  flex-shrink: 0;
+  max-height: 220px;
+  min-height: 80px;
   overflow-y: auto;
   border: 1px solid #f1f5f9;
   border-radius: 8px;
   padding: 0.5rem;
   margin-bottom: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
 }
 
 .empty-cart {

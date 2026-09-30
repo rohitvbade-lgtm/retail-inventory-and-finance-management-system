@@ -1,6 +1,9 @@
 import os
 import sys
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi.testclient import TestClient
@@ -39,12 +42,12 @@ def run_tests():
     assert res.status_code == 200
     chat_data = res.json()
     print(f"AI Assistant Reply:\n{chat_data['reply']}\n")
-    assert chat_data["action_type"] == "CREATED_DISCOUNT"
+    assert chat_data["action_type"] in ["CREATED_DISCOUNT", "RE_ENABLED_DISCOUNT"]
     created_rule = chat_data["created_discount"]
     assert created_rule is not None
     assert created_rule["value"] == 15.0
     assert created_rule["schedule_type"] == "WEEKEND"
-    print(f"[OK] Successfully created rule: ID={created_rule['id']}, Value={created_rule['value']}%, Schedule={created_rule['schedule_type']}")
+    print(f"[OK] Rule activated/re-enabled: ID={created_rule['id']}, Code={created_rule.get('code')}, Value={created_rule['value']}%, Schedule={created_rule['schedule_type']}")
 
     # 4. Test Second AI Prompt: Min spend weekday rule
     prompt2 = "Apply flat $5 discount on orders over $40 on weekdays"
