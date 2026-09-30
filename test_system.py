@@ -30,6 +30,11 @@ def run_tests():
     res = client.get("/api/products/low-stock/alerts")
     assert res.status_code == 200
     alerts = res.json()
+    if len(alerts) == 0 and len(products) > 0:
+        p = products[0]
+        client.put(f"/api/products/{p['id']}", json={"name": p["name"], "price": p["price"], "quantity": 2, "min_threshold": 5, "category": p["category"]})
+        alerts = client.get("/api/products/low-stock/alerts").json()
+
     print(f"[OK] Low-stock alerts functional: {len(alerts)} items currently below threshold:")
     for a in alerts:
         print(f"   * {a['name']} (Stock: {a['quantity']} / Min: {a['min_threshold']})")
@@ -85,7 +90,8 @@ def run_tests():
 
     # 6. Counter Invoicing (Checkout) & Automatic Inventory Deduction
     # Pick a product with sufficient stock
-    checkout_prod = next(p for p in products if p["quantity"] >= 2)
+    current_products = client.get("/api/products").json()
+    checkout_prod = next(p for p in current_products if p["quantity"] >= 2)
     initial_stock = checkout_prod["quantity"]
     print(f"\n--- Testing Counter Checkout (POS Sale) ---")
     print(f"Product '{checkout_prod['name']}' stock before checkout: {initial_stock}")

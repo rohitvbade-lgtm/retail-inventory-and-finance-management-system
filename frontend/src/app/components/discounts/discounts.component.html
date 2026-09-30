@@ -1,35 +1,13 @@
 <div class="discounts-container">
-  <!-- TOP SUB-NAVBAR & VIEW SWITCHER -->
+  <!-- TOP HEADER BAR -->
   <div class="discounts-top-bar">
-    <div class="view-switch-tabs">
-      <button
-        class="view-tab"
-        [class.active]="activeView === 'codes'"
-        (click)="setActiveView('codes')"
-      >
-        <span class="v-icon">🏷️</span>
-        <span class="v-title">Discount Codes Directory</span>
-        <span class="v-badge">{{ activeCount }} Active / {{ expiredCount }} Expired</span>
-      </button>
-
-      <button
-        class="view-tab"
-        [class.active]="activeView === 'ai'"
-        (click)="setActiveView('ai')"
-      >
-        <span class="v-icon">🤖</span>
-        <span class="v-title">AI Discount Machine</span>
-        <span class="v-sub">Interactive Prompt Engine</span>
-      </button>
-
-      <button
-        class="view-tab split-tab"
-        [class.active]="activeView === 'split'"
-        (click)="setActiveView('split')"
-      >
-        <span class="v-icon">🔲</span>
-        <span class="v-title">Side-by-Side</span>
-      </button>
+    <div class="top-bar-info">
+      <div class="top-bar-heading">
+        <h2>⚡ AI Discount Engine & Promo Directory</h2>
+        <span class="summary-pill active-pill">🟢 {{ activeCount }} Active</span>
+        <span class="summary-pill expired-pill">⌛ {{ expiredCount }} Expired/Disabled</span>
+      </div>
+      <p class="top-bar-subheading">Generate and adjust deterministic discount rules with AI on the left &bull; Manage, toggle, and renew codes on the right</p>
     </div>
 
     <div class="top-bar-actions">
@@ -39,15 +17,10 @@
     </div>
   </div>
 
-  <!-- MAIN BODY LAYOUT -->
-  <div
-    class="discounts-body-layout"
-    [class.view-codes-only]="activeView === 'codes'"
-    [class.view-ai-only]="activeView === 'ai'"
-    [class.view-split]="activeView === 'split'"
-  >
-    <!-- LEFT / AI CHAT & SIMULATOR SECTION (visible in 'ai' or 'split' view) -->
-    <div class="chat-section" *ngIf="activeView === 'ai' || activeView === 'split'">
+  <!-- MAIN BODY LAYOUT (Always Side-by-Side) -->
+  <div class="discounts-body-layout">
+    <!-- LEFT / AI CHAT & SIMULATOR SECTION -->
+    <div class="chat-section">
       <div class="chat-card">
         <div class="chat-header">
           <div class="bot-identity">
@@ -165,81 +138,88 @@
         </div>
       </div>
 
-      <!-- Test Simulator (Shown in AI view) -->
-      <div class="sandbox-card" *ngIf="activeView === 'ai'">
-        <div class="sandbox-header">
-          <div>
-            <h4>🔬 Discount Engine Simulator</h4>
-            <p>Test how the deterministic engine evaluates active rules against a basket</p>
-          </div>
-          <button class="btn-run-sim" [disabled]="evaluatingSim" (click)="runSimulation()">
-            {{ evaluatingSim ? 'Calculating...' : 'Run Test' }}
-          </button>
-        </div>
+      <!-- Test Simulator (Collapsible under Chat) -->
+      <div class="sandbox-container">
+        <button type="button" class="btn-toggle-sandbox" (click)="toggleSimulator()">
+          <span class="btn-toggle-left">🔬 Discount Engine Basket Simulator</span>
+          <span class="toggle-indicator">{{ showSimulator ? 'Hide Simulator ▲' : 'Open Simulator ▼' }}</span>
+        </button>
 
-        <div class="sandbox-controls">
-          <div class="control-group">
-            <label>Simulation Day</label>
-            <div class="sim-day-radios">
-              <label>
-                <input type="radio" name="simDay" value="WEEKEND" [(ngModel)]="simSchedule" />
-                Weekend (Sat)
-              </label>
-              <label>
-                <input type="radio" name="simDay" value="WEEKDAY" [(ngModel)]="simSchedule" />
-                Weekday (Wed)
-              </label>
-              <label>
-                <input type="radio" name="simDay" value="ALWAYS" [(ngModel)]="simSchedule" />
-                Today
-              </label>
+        <div class="sandbox-card" *ngIf="showSimulator">
+          <div class="sandbox-header">
+            <div>
+              <h4>🔬 Discount Engine Simulator</h4>
+              <p>Test how the deterministic engine evaluates active rules against a basket</p>
             </div>
+            <button class="btn-run-sim" [disabled]="evaluatingSim" (click)="runSimulation()">
+              {{ evaluatingSim ? 'Calculating...' : 'Run Test' }}
+            </button>
           </div>
 
-          <div class="basket-selection">
-            <label>Sample Cart Items</label>
-            <div class="basket-items-grid">
-              <div *ngFor="let p of products.slice(0, 6)" class="basket-item-row">
-                <span class="basket-item-name">{{ p.name }} (${{ p.price.toFixed(2) }})</span>
-                <div class="basket-qty-input">
-                  <button
-                    type="button"
-                    (click)="setSimQty(p.id, getSimQty(p.id) - 1)"
-                    [disabled]="getSimQty(p.id) <= 0"
-                  >
-                    -
-                  </button>
-                  <span>{{ getSimQty(p.id) }}</span>
-                  <button type="button" (click)="setSimQty(p.id, getSimQty(p.id) + 1)">+</button>
+          <div class="sandbox-controls">
+            <div class="control-group">
+              <label>Simulation Day</label>
+              <div class="sim-day-radios">
+                <label>
+                  <input type="radio" name="simDay" value="WEEKEND" [(ngModel)]="simSchedule" />
+                  Weekend (Sat)
+                </label>
+                <label>
+                  <input type="radio" name="simDay" value="WEEKDAY" [(ngModel)]="simSchedule" />
+                  Weekday (Wed)
+                </label>
+                <label>
+                  <input type="radio" name="simDay" value="ALWAYS" [(ngModel)]="simSchedule" />
+                  Today
+                </label>
+              </div>
+            </div>
+
+            <div class="basket-selection">
+              <label>Sample Cart Items</label>
+              <div class="basket-items-grid">
+                <div *ngFor="let p of products.slice(0, 6)" class="basket-item-row">
+                  <span class="basket-item-name">{{ p.name }} (${{ p.price.toFixed(2) }})</span>
+                  <div class="basket-qty-input">
+                    <button
+                      type="button"
+                      (click)="setSimQty(p.id, getSimQty(p.id) - 1)"
+                      [disabled]="getSimQty(p.id) <= 0"
+                    >
+                      -
+                    </button>
+                    <span>{{ getSimQty(p.id) }}</span>
+                    <button type="button" (click)="setSimQty(p.id, getSimQty(p.id) + 1)">+</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div *ngIf="simResult" class="sim-results-box">
-          <div class="sim-totals-row">
-            <div>Subtotal: <b>${{ simResult.subtotal.toFixed(2) }}</b></div>
-            <div class="sim-discount-highlight">
-              Discount Applied: <b>-${{ simResult.total_discount.toFixed(2) }}</b>
+          <div *ngIf="simResult" class="sim-results-box">
+            <div class="sim-totals-row">
+              <div>Subtotal: <b>${{ simResult.subtotal.toFixed(2) }}</b></div>
+              <div class="sim-discount-highlight">
+                Discount Applied: <b>-${{ simResult.total_discount.toFixed(2) }}</b>
+              </div>
+              <div>Net Total: <b>${{ simResult.total.toFixed(2) }}</b></div>
             </div>
-            <div>Net Total: <b>${{ simResult.total.toFixed(2) }}</b></div>
-          </div>
 
-          <div *ngIf="simResult.applied_discounts.length > 0" class="sim-rules-breakdown">
-            <strong>Applied Rules:</strong>
-            <ul>
-              <li *ngFor="let d of simResult.applied_discounts">
-                <b>{{ d.rule_name }}</b> ({{ d.applied_to }}): -${{ d.discount_amount.toFixed(2) }}
-              </li>
-            </ul>
+            <div *ngIf="simResult.applied_discounts.length > 0" class="sim-rules-breakdown">
+              <strong>Applied Rules:</strong>
+              <ul>
+                <li *ngFor="let d of simResult.applied_discounts">
+                  <b>{{ d.rule_name }}</b> ({{ d.applied_to }}): -${{ d.discount_amount.toFixed(2) }}
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT / DISCOUNT CODES DIRECTORY SECTION (visible in 'codes' or 'split' view) -->
-    <div class="management-section" *ngIf="activeView === 'codes' || activeView === 'split'">
+    <!-- RIGHT / DISCOUNT CODES DIRECTORY SECTION -->
+    <div class="management-section">
       <div class="rules-card">
         <!-- Sub-Header: Active, Expired, All Tabs -->
         <div class="rules-card-header">

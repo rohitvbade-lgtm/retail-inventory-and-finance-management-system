@@ -9,13 +9,13 @@
   overflow: hidden;
 }
 
-/* TOP VIEW-SWITCHER TOOLBAR */
+/* TOP HEADER BAR */
 .discounts-top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: white;
-  padding: 0.65rem 1rem;
+  padding: 0.75rem 1.25rem;
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
   flex-shrink: 0;
@@ -23,73 +23,56 @@
   flex-wrap: wrap;
 }
 
-.view-switch-tabs {
+.top-bar-info {
   display: flex;
-  gap: 0.5rem;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 10px;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.view-tab {
+.top-bar-heading {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: transparent;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.view-tab:hover {
+.top-bar-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
   color: #0f172a;
-  background: rgba(255, 255, 255, 0.6);
 }
 
-.view-tab.active {
-  background: white;
-  color: #2563eb;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-.view-tab.split-tab.active {
-  color: #7c3aed;
-}
-
-.v-icon {
-  font-size: 1.1rem;
-}
-
-.v-title {
-  font-weight: 700;
-}
-
-.v-badge {
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 12px;
-  font-weight: 700;
-}
-
-.v-sub {
-  font-size: 0.72rem;
+.top-bar-subheading {
+  margin: 0;
+  font-size: 0.8rem;
   color: #64748b;
-  font-weight: normal;
+}
+
+.summary-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+}
+
+.summary-pill.active-pill {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.summary-pill.expired-pill {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .btn-create-code-primary {
   background: #2563eb;
   color: white;
   border: none;
-  padding: 0.55rem 1.1rem;
+  padding: 0.55rem 1.15rem;
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 700;
@@ -102,44 +85,33 @@
   background: #1d4ed8;
 }
 
-/* BODY LAYOUT MODES */
+/* MAIN SIDE-BY-SIDE BODY LAYOUT */
 .discounts-body-layout {
   flex: 1 1 0%;
   min-height: 0;
   max-height: 100%;
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: minmax(420px, 1.05fr) minmax(460px, 1fr);
+  gap: 1.25rem;
   overflow: hidden;
 }
 
-/* Mode 1: Codes directory full width */
-.discounts-body-layout.view-codes-only {
-  grid-template-columns: 1fr;
-}
-
-/* Mode 2: AI chat full width */
-.discounts-body-layout.view-ai-only {
-  grid-template-columns: 1fr 420px;
-}
-
-/* Mode 3: Split side-by-side */
-.discounts-body-layout.view-split {
-  grid-template-columns: 1fr 520px;
-}
-
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .discounts-container {
     height: auto;
     max-height: none;
-    overflow: visible;
+    overflow-y: auto;
   }
-  .discounts-body-layout,
-  .discounts-body-layout.view-split,
-  .discounts-body-layout.view-ai-only {
+  .discounts-body-layout {
     grid-template-columns: 1fr;
     height: auto;
     max-height: none;
     overflow: visible;
+  }
+  .chat-section,
+  .management-section {
+    height: 700px;
+    max-height: 700px;
   }
 }
 
@@ -1060,7 +1032,52 @@ input:checked + .slider:before {
   font-size: 0.9rem;
 }
 
-/* SIMULATOR SANDBOX CARD */
+/* SIMULATOR SANDBOX COLLAPSIBLE CONTAINER */
+.sandbox-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-toggle-sandbox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-toggle-sandbox:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.btn-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toggle-indicator {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
 .sandbox-card {
   background: white;
   border-radius: 12px;

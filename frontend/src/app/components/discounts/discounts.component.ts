@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
@@ -21,8 +20,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DiscountsComponent implements OnInit, OnDestroy {
-  // View mode switcher: 'codes' (full codes directory), 'ai' (AI chat engine), 'split' (side-by-side)
-  activeView: 'codes' | 'ai' | 'split' = 'codes';
+  showSimulator: boolean = false;
   editingExpiryRuleId: number | null = null;
   customExpiryInput: string = '';
 
@@ -84,24 +82,12 @@ export class DiscountsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ApiService,
-    private cdr: ChangeDetectorRef,
-    private route: ActivatedRoute
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) this.apiKey = savedKey;
-
-    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      if (params['view'] === 'ai') {
-        this.activeView = 'ai';
-      } else if (params['view'] === 'codes') {
-        this.activeView = 'codes';
-      } else if (params['view'] === 'split') {
-        this.activeView = 'split';
-      }
-      this.cdr.markForCheck();
-    });
 
     this.rulesSearchSubject
       .pipe(
@@ -397,8 +383,8 @@ export class DiscountsComponent implements OnInit, OnDestroy {
     return this.simSelectedProductIds[productId] || 0;
   }
 
-  setActiveView(view: 'codes' | 'ai' | 'split'): void {
-    this.activeView = view;
+  toggleSimulator(): void {
+    this.showSimulator = !this.showSimulator;
     this.cdr.markForCheck();
   }
 
