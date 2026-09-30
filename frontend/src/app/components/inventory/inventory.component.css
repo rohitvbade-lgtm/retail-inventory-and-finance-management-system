@@ -64,6 +64,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
 }
 
 .alert-item-chip {
@@ -183,8 +187,10 @@
 .table-card {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  max-height: 65vh;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  scrollbar-width: thin;
 }
 
 .inventory-table {
@@ -203,6 +209,9 @@
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .inventory-table td {

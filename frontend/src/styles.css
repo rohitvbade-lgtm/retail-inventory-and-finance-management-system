@@ -1,6 +1,10 @@
+/* Global Design System */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -9,25 +13,45 @@ html, body {
   background-color: #f1f5f9;
   -webkit-font-smoothing: antialiased;
 }
+
 button, input, select, textarea {
   font-family: inherit;
 }
 
-/* Custom modern scrollbars */
+/* Global visible modern scrollbars (Firefox + WebKit) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f5f9;
+  border-radius: 6px;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
 }
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #475569;
+}
+
+::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
 /* Base button and animation utilities */
 .btn-primary {
   background: #2563eb;
@@ -39,9 +63,11 @@ button, input, select, textarea {
   cursor: pointer;
   transition: all 0.15s ease;
 }
+
 .btn-primary:hover {
   background: #1d4ed8;
 }
+
 .spinner {
   width: 24px;
   height: 24px;
@@ -50,9 +76,11 @@ button, input, select, textarea {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
 .loading-state {
   display: flex;
   flex-direction: column;

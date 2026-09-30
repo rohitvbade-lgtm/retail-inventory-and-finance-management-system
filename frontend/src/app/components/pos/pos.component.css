@@ -70,7 +70,8 @@
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
 }
 
 .cat-chip {
@@ -102,7 +103,9 @@
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 1rem;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
 }
 
 .product-card {
