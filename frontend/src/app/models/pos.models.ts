@@ -15,9 +15,23 @@ export interface Product {
 
 export type str = string;
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface PaginatedDiscountResponse extends PaginatedResponse<DiscountRule> {
+  active_count: number;
+  expired_count: number;
+}
+
 export interface DiscountRule {
   id: number;
   name: string;
+  code?: string;
   description?: string;
   discount_type: 'PERCENTAGE' | 'FIXED_AMOUNT';
   value: number;
@@ -29,6 +43,8 @@ export interface DiscountRule {
   start_date?: string;
   end_date?: string;
   is_active: boolean;
+  is_expired?: boolean;
+  status?: 'ACTIVE' | 'EXPIRED' | 'INACTIVE' | 'SCHEDULED';
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -54,6 +70,7 @@ export interface EvaluatedCartItem {
 export interface AppliedDiscountDetail {
   rule_id: number;
   rule_name: string;
+  code?: string;
   description?: string;
   discount_amount: number;
   applicability: string;
@@ -67,6 +84,8 @@ export interface EvaluatedCartResponse {
   total: number;
   line_items: EvaluatedCartItem[];
   applied_discounts: AppliedDiscountDetail[];
+  promo_code?: string;
+  promo_code_status?: string;
 }
 
 export interface InvoiceItem {

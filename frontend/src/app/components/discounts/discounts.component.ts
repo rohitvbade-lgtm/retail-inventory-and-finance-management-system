@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import {
   DiscountRule,
@@ -14,17 +16,46 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './discounts.component.html',
-  styleUrls: ['./discounts.component.css']
+  styleUrls: ['./discounts.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DiscountsComponent implements OnInit {
+export class DiscountsComponent implements OnInit, OnDestroy {
   chatMessages: ChatMessage[] = [];
   promptInput: string = '';
   apiKey: string = '';
   showApiKeyInput: boolean = false;
   sendingMessage: boolean = false;
 
+  // Rules Tabs & Pagination
   rules: DiscountRule[] = [];
   loadingRules: boolean = false;
+  selectedTab: 'active' | 'expired' | 'all' = 'active';
+  rulesSearchQuery: string = '';
+  activeCount: number = 0;
+  expiredCount: number = 0;
+  totalRules: number = 0;
+  currentPage: number = 1;
+  pageSize: number = 6;
+  totalPages: number = 1;
+  copiedCode: string | null = null;
+
+  // Manual Rule Creation Modal
+  showCreateModal: boolean = false;
+  createError: string | null = null;
+  categories: string[] = [];
+  selectedTargetCategory: string = 'General';
+  newRuleForm: Partial<DiscountRule> = {
+    name: '',
+    code: '',
+    discount_type: 'PERCENTAGE',
+    value: 10,
+    applicability: 'CATEGORY',
+    min_order_amount: 0,
+    schedule_type: 'WEEKEND',
+    start_date: '',
+    end_date: '',
+    description: ''
+  };
 
   // Simulator test bench
   products: Product[] = [];
@@ -42,27 +73,176 @@ export class DiscountsComponent implements OnInit {
     'Deactivate all weekend discounts'
   ];
 
-  constructor(private api: ApiService) {}
+  private rulesSearchSubject = new Subject<string>();
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private api: ApiService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) this.apiKey = savedKey;
 
+    this.rulesSearchSubject
+      .pipe(
+        debounceTime(250),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((query) => {
+        this.rulesSearchQuery = query;
+        this.currentPage = 1;
+        this.loadRules();
+      });
+
     this.loadRules();
     this.loadChatHistory();
     this.loadProductsForSimulator();
+    this.loadCategories();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadCategories(): void {
+    this.api.getCategories().subscribe({
+      next: (cats) => {
+        this.categories = cats;
+        if (cats.length > 0) this.selectedTargetCategory = cats[0];
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  selectTab(tab: 'active' | 'expired' | 'all'): void {
+    this.selectedTab = tab;
+    this.currentPage = 1;
+    this.loadRules();
+  }
+
+  onRulesSearchInput(val: string): void {
+    this.rulesSearchSubject.next(val);
+  }
+
+  clearRulesSearch(): void {
+    this.rulesSearchQuery = '';
+    this.currentPage = 1;
+    this.loadRules();
   }
 
   loadRules(): void {
     this.loadingRules = true;
-    this.api.getDiscountRules(false).subscribe({
-      next: (data) => {
-        this.rules = data;
-        this.loadingRules = false;
+    this.cdr.markForCheck();
+    this.api
+      .getDiscountRulesPaginated(
+        this.selectedTab,
+        this.rulesSearchQuery,
+        this.currentPage,
+        this.pageSize
+      )
+      .subscribe({
+        next: (data) => {
+          this.rules = data.items;
+          this.activeCount = data.active_count;
+          this.expiredCount = data.expired_count;
+          this.totalRules = data.total;
+          this.totalPages = data.total_pages;
+          this.loadingRules = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Failed to load rules', err);
+          this.loadingRules = false;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.currentPage = page;
+      this.loadRules();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  copyCode(code?: string): void {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      this.copiedCode = code;
+      this.cdr.markForCheck();
+      setTimeout(() => {
+        this.copiedCode = null;
+        this.cdr.markForCheck();
+      }, 2000);
+    });
+  }
+
+  openCreateModal(): void {
+    this.createError = null;
+    this.newRuleForm = {
+      name: '',
+      code: 'PROMO' + Math.floor(10 + Math.random() * 90),
+      discount_type: 'PERCENTAGE',
+      value: 15,
+      applicability: 'CATEGORY',
+      target_categories: this.categories.length > 0 ? [this.categories[0]] : ['General'],
+      min_order_amount: 0,
+      schedule_type: 'WEEKEND',
+      start_date: '',
+      end_date: '',
+      description: ''
+    };
+    this.showCreateModal = true;
+    this.cdr.markForCheck();
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal = false;
+    this.createError = null;
+    this.cdr.markForCheck();
+  }
+
+  submitCreateRule(): void {
+    this.createError = null;
+    if (!this.newRuleForm.name?.trim()) {
+      this.createError = 'Rule name is required.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const payload: Partial<DiscountRule> = {
+      ...this.newRuleForm,
+      code: this.newRuleForm.code?.trim().toUpperCase(),
+      target_categories: this.newRuleForm.applicability === 'CATEGORY' ? [this.selectedTargetCategory] : [],
+      is_active: true
+    };
+
+    this.api.createDiscountRule(payload).subscribe({
+      next: () => {
+        this.showCreateModal = false;
+        this.loadRules();
+        this.cdr.markForCheck();
       },
       error: (err) => {
-        console.error('Failed to load rules', err);
-        this.loadingRules = false;
+        this.createError = err.error?.detail || 'Failed to create discount rule.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -72,6 +252,7 @@ export class DiscountsComponent implements OnInit {
       next: (msgs) => {
         this.chatMessages = msgs;
         this.scrollToBottom();
+        this.cdr.markForCheck();
       },
       error: (err) => console.error('Failed to load chat history', err)
     });
@@ -86,6 +267,7 @@ export class DiscountsComponent implements OnInit {
           this.simSelectedProductIds[prods[0].id] = 2;
           this.simSelectedProductIds[prods[1].id] = 1;
         }
+        this.cdr.markForCheck();
       },
       error: (err) => console.error('Failed to load products for simulator', err)
     });
@@ -109,13 +291,13 @@ export class DiscountsComponent implements OnInit {
     if (!text || this.sendingMessage) return;
 
     this.sendingMessage = true;
-    // Add user message to UI right away
     this.chatMessages.push({
       role: 'user',
       content: text
     });
     this.promptInput = '';
     this.scrollToBottom();
+    this.cdr.markForCheck();
 
     this.api.sendChatMessage(text, this.apiKey).subscribe({
       next: (res) => {
@@ -127,6 +309,7 @@ export class DiscountsComponent implements OnInit {
         this.sendingMessage = false;
         this.loadRules(); // Refresh active rules table
         this.scrollToBottom();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.chatMessages.push({
@@ -135,6 +318,7 @@ export class DiscountsComponent implements OnInit {
         });
         this.sendingMessage = false;
         this.scrollToBottom();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -143,6 +327,8 @@ export class DiscountsComponent implements OnInit {
     this.api.toggleDiscountRule(rule.id).subscribe({
       next: (updated) => {
         rule.is_active = updated.is_active;
+        this.loadRules();
+        this.cdr.markForCheck();
       },
       error: (err) => console.error('Failed to toggle rule', err)
     });
@@ -151,7 +337,10 @@ export class DiscountsComponent implements OnInit {
   deleteRule(rule: DiscountRule): void {
     if (confirm(`Delete rule '${rule.name}'?`)) {
       this.api.deleteDiscountRule(rule.id).subscribe({
-        next: () => this.loadRules(),
+        next: () => {
+          this.loadRules();
+          this.cdr.markForCheck();
+        },
         error: (err) => console.error('Failed to delete rule', err)
       });
     }
@@ -169,6 +358,7 @@ export class DiscountsComponent implements OnInit {
     }
 
     this.evaluatingSim = true;
+    this.cdr.markForCheck();
     let simDateIso: string | undefined = undefined;
     const now = new Date();
 
@@ -190,10 +380,12 @@ export class DiscountsComponent implements OnInit {
       next: (res) => {
         this.simResult = res;
         this.evaluatingSim = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Failed to run simulation', err);
         this.evaluatingSim = false;
+        this.cdr.markForCheck();
       }
     });
   }

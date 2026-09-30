@@ -45,9 +45,18 @@ class ProductResponse(ProductBase):
         from_attributes = True
 
 
+class PaginatedProductResponse(BaseModel):
+    items: List[ProductResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 # ---------------- DISCOUNT SCHEMAS ----------------
 class DiscountRuleBase(BaseModel):
     name: str = Field(..., example="Weekend 15% Off Dairy")
+    code: Optional[str] = Field(None, example="WEEKEND15")
     description: Optional[str] = None
     discount_type: str = Field("PERCENTAGE", example="PERCENTAGE", description="PERCENTAGE or FIXED_AMOUNT")
     value: float = Field(..., ge=0.0, example=15.0)
@@ -67,6 +76,7 @@ class DiscountRuleCreate(DiscountRuleBase):
 
 class DiscountRuleUpdate(BaseModel):
     name: Optional[str] = None
+    code: Optional[str] = None
     description: Optional[str] = None
     discount_type: Optional[str] = None
     value: Optional[float] = None
@@ -83,6 +93,7 @@ class DiscountRuleUpdate(BaseModel):
 class DiscountRuleResponse(BaseModel):
     id: int
     name: str
+    code: Optional[str] = None
     description: Optional[str] = None
     discount_type: str
     value: float
@@ -94,12 +105,24 @@ class DiscountRuleResponse(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_active: bool
+    is_expired: bool = False
+    status: str = "ACTIVE"
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class PaginatedDiscountResponse(BaseModel):
+    items: List[DiscountRuleResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    active_count: int
+    expired_count: int
 
 
 # ---------------- POS & INVOICE SCHEMAS ----------------
@@ -111,11 +134,13 @@ class CartItemInput(BaseModel):
 class EvaluateCartRequest(BaseModel):
     items: List[CartItemInput]
     simulated_date_iso: Optional[str] = None  # Optional override to simulate weekend/weekday/season
+    promo_code: Optional[str] = None          # Optional explicit promo code entered
 
 
 class AppliedDiscountDetail(BaseModel):
     rule_id: int
     rule_name: str
+    code: Optional[str] = None
     description: Optional[str] = None
     discount_amount: float
     applicability: str
@@ -141,6 +166,8 @@ class EvaluatedCartResponse(BaseModel):
     total: float
     line_items: List[EvaluatedCartItem]
     applied_discounts: List[AppliedDiscountDetail]
+    promo_code: Optional[str] = None
+    promo_code_status: Optional[str] = None
 
 
 class CreateInvoiceRequest(BaseModel):
@@ -151,6 +178,7 @@ class CreateInvoiceRequest(BaseModel):
     payment_method: str = "Cash"
     notes: Optional[str] = None
     simulated_date_iso: Optional[str] = None
+    promo_code: Optional[str] = None
 
 
 class InvoiceItemResponse(BaseModel):
@@ -187,6 +215,14 @@ class InvoiceResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedInvoiceResponse(BaseModel):
+    items: List[InvoiceResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 # ---------------- AI CHAT SCHEMAS ----------------

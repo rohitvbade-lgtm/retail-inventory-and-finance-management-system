@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from sqlalchemy import text
 from .database import engine, Base
 from .seed_data import seed_database
 from .routers import inventory, finance, discounts, ai_chat
@@ -12,8 +13,14 @@ from .routers import inventory, finance, discounts, ai_chat
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Setup database tables and seed
+    # Setup database tables and run lightweight SQLite migration
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE discount_rules ADD COLUMN code VARCHAR(100);"))
+            conn.commit()
+        except Exception:
+            pass
     seed_database()
     yield
 

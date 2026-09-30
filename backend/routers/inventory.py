@@ -1,20 +1,29 @@
-from typing import List, Optional
+from typing import List, Optional, Union
+import math
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from ..database import get_db
 from ..models import Product
-from ..schemas import ProductCreate, ProductUpdate, ProductResponse, ProductStockAdjust
+from ..schemas import (
+    ProductCreate,
+    ProductUpdate,
+    ProductResponse,
+    ProductStockAdjust,
+    PaginatedProductResponse
+)
 
 router = APIRouter(prefix="/api/products", tags=["Inventory"])
 
 
-@router.get("", response_model=List[ProductResponse])
+@router.get("", response_model=Union[PaginatedProductResponse, List[ProductResponse]])
 def get_products(
     search: Optional[str] = None,
     category: Optional[str] = None,
     low_stock_only: bool = False,
+    page: Optional[int] = Query(None, ge=1, description="Page number starting at 1"),
+    page_size: int = Query(12, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db)
 ):
     query = db.query(Product)
@@ -26,11 +35,23 @@ def get_products(
     if category and category != "All":
         query = query.filter(Product.category == category)
         
-    products = query.order_by(Product.name.asc()).all()
-    
     if low_stock_only:
-        products = [p for p in products if p.is_low_stock]
+        query = query.filter(Product.quantity <= Product.min_threshold)
         
+    if page is not None:
+        total = query.count()
+        total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
+        offset = (page - 1) * page_size
+        items = query.order_by(Product.name.asc()).offset(offset).limit(page_size).all()
+        return PaginatedProductResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+
+    products = query.order_by(Product.name.asc()).all()
     return products
 
 

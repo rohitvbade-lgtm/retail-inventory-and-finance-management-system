@@ -1,7 +1,8 @@
 import json
+import math
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -10,6 +11,7 @@ from ..schemas import (
     DiscountRuleCreate,
     DiscountRuleUpdate,
     DiscountRuleResponse,
+    PaginatedDiscountResponse,
     EvaluateCartRequest,
     EvaluatedCartResponse
 )
@@ -22,6 +24,7 @@ def format_rule_response(rule: DiscountRule) -> DiscountRuleResponse:
     return DiscountRuleResponse(
         id=rule.id,
         name=rule.name,
+        code=rule.get_effective_code(),
         description=rule.description,
         discount_type=rule.discount_type,
         value=rule.value,
@@ -33,28 +36,65 @@ def format_rule_response(rule: DiscountRule) -> DiscountRuleResponse:
         start_date=rule.start_date,
         end_date=rule.end_date,
         is_active=rule.is_active,
+        is_expired=rule.is_expired,
+        status=rule.status,
         created_by=rule.created_by,
         created_at=rule.created_at,
         updated_at=rule.updated_at
     )
 
 
-@router.get("", response_model=List[DiscountRuleResponse])
+@router.get("", response_model=Union[PaginatedDiscountResponse, List[DiscountRuleResponse]])
 def get_discount_rules(
     active_only: bool = False,
+    tab: str = Query("all", description="'active', 'expired', or 'all'"),
+    search: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(DiscountRule)
-    if active_only:
-        query = query.filter(DiscountRule.is_active == True)
-    rules = query.order_by(DiscountRule.id.desc()).all()
-    return [format_rule_response(r) for r in rules]
+    all_rules = db.query(DiscountRule).order_by(DiscountRule.id.desc()).all()
+    formatted = [format_rule_response(r) for r in all_rules]
+
+    active_count = sum(1 for r in formatted if r.status == "ACTIVE")
+    expired_count = sum(1 for r in formatted if r.status in ["EXPIRED", "INACTIVE"])
+
+    filtered = formatted
+    if tab == "active" or active_only:
+        filtered = [r for r in filtered if r.status == "ACTIVE"]
+    elif tab == "expired":
+        filtered = [r for r in filtered if r.status in ["EXPIRED", "INACTIVE"]]
+
+    if search:
+        s = search.strip().lower()
+        filtered = [
+            r for r in filtered
+            if s in r.name.lower() or (r.code and s in r.code.lower()) or (r.description and s in r.description.lower())
+        ]
+
+    if page is not None:
+        total = len(filtered)
+        total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
+        offset = (page - 1) * page_size
+        items = filtered[offset : offset + page_size]
+        return PaginatedDiscountResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            active_count=active_count,
+            expired_count=expired_count
+        )
+
+    return filtered
 
 
 @router.post("", response_model=DiscountRuleResponse, status_code=201)
 def create_discount_rule(rule_in: DiscountRuleCreate, db: Session = Depends(get_db)):
     rule = DiscountRule(
         name=rule_in.name,
+        code=rule_in.code.strip().upper() if rule_in.code and rule_in.code.strip() else None,
         description=rule_in.description,
         discount_type=rule_in.discount_type.upper(),
         value=rule_in.value,
@@ -135,7 +175,8 @@ def evaluate_cart_discounts(
         products_map=products_map,
         cart_items_input=cart_inputs,
         active_rules=active_rules,
-        eval_datetime=eval_dt
+        eval_datetime=eval_dt,
+        promo_code=payload.promo_code
     )
 
     return result

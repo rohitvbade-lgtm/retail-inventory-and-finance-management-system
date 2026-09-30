@@ -821,6 +821,139 @@
   cursor: pointer;
 }
 
+/* Catalog Pagination */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-top: 0.75rem;
+}
+
+.page-nav-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-nav-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.page-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+/* Promo Code Box */
+.promo-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.promo-input-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.promo-input-row input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.btn-apply-promo {
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-apply-promo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-remove-promo {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 6px;
+  width: 28px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.promo-status-row {
+  margin-top: 0.4rem;
+}
+
+.promo-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.promo-tag.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.promo-tag.warning {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.promo-tag.error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.name-chip-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rule-code-chip {
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
 /* Print CSS */
 @media print {
   body * {

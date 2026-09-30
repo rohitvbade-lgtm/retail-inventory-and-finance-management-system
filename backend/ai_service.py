@@ -333,9 +333,25 @@ Only output the JSON object, nothing else."""
                 "action_type": "TOGGLED_DISCOUNT"
             }
 
+        # Generate memorable promo code
+        cat_prefix = ""
+        target_cats = action_data.get("target_categories") or []
+        if target_cats:
+            cat_prefix = "".join(c for c in target_cats[0] if c.isalnum())[:5].upper()
+        elif action_data.get("schedule_type") == "WEEKEND":
+            cat_prefix = "WKND"
+        elif action_data.get("schedule_type") == "WEEKDAY":
+            cat_prefix = "WKDAY"
+        else:
+            cat_prefix = "SAVE"
+
+        val_int = int(action_data.get("value", 10.0))
+        generated_code = f"{cat_prefix}{val_int}"
+
         # Default action: create_discount_rule
         rule = DiscountRule(
             name=action_data.get("name", "Store Discount"),
+            code=generated_code,
             description=action_data.get("description", original_prompt),
             discount_type=action_data.get("discount_type", "PERCENTAGE"),
             value=float(action_data.get("value", 10.0)),
@@ -373,11 +389,12 @@ Only output the JSON object, nothing else."""
             f"**[{engine_label}]**\n"
             f"Created and activated discount rule:\n\n"
             f"**{rule.name}**\n"
+            f"* **Promo Code**: `{rule.get_effective_code()}`\n"
             f"* **Discount**: {rule.value:g}{unit} off\n"
             f"* **Scope**: {scope_label}\n"
             f"* **Schedule**: {schedule_label}\n"
             f"{f'* **Min Spend**: ${rule.min_order_amount:g}' if rule.min_order_amount > 0 else ''}\n\n"
-            f"The deterministic discount engine will automatically apply this to qualified invoices."
+            f"The deterministic discount engine will automatically apply this to qualified invoices, or cashiers can apply code `{rule.get_effective_code()}`."
         )
 
         return {
@@ -391,6 +408,7 @@ Only output the JSON object, nothing else."""
         return {
             "id": r.id,
             "name": r.name,
+            "code": r.get_effective_code(),
             "description": r.description,
             "discount_type": r.discount_type,
             "value": r.value,
@@ -402,6 +420,8 @@ Only output the JSON object, nothing else."""
             "start_date": r.start_date,
             "end_date": r.end_date,
             "is_active": r.is_active,
+            "is_expired": r.is_expired,
+            "status": r.status,
             "created_by": r.created_by,
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "updated_at": r.updated_at.isoformat() if r.updated_at else None,

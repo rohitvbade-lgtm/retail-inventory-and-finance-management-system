@@ -127,6 +127,7 @@ def seed_database():
         sample_discounts = [
             DiscountRule(
                 name="Weekend Dairy Blast",
+                code="DAIRY15",
                 description="15% off all Dairy products on weekends (Sat-Sun)",
                 discount_type="PERCENTAGE",
                 value=15.0,
@@ -140,6 +141,7 @@ def seed_database():
             ),
             DiscountRule(
                 name="Weekday Coffee & Snack Rush",
+                code="SNACK10",
                 description="10% off Beverages and Snacks from Mon to Fri",
                 discount_type="PERCENTAGE",
                 value=10.0,
@@ -153,6 +155,7 @@ def seed_database():
             ),
             DiscountRule(
                 name="High Value Cart Special",
+                code="SAVE5",
                 description="Flat $5 off entire cart when spending $40 or more",
                 discount_type="FIXED_AMOUNT",
                 value=5.0,
@@ -162,6 +165,22 @@ def seed_database():
                 min_order_amount=40.0,
                 schedule_type="ALWAYS",
                 is_active=True,
+                created_by="Seed Demo"
+            ),
+            DiscountRule(
+                name="Autumn Flash Sale (Expired)",
+                code="FALL25",
+                description="25% off storewide during early Autumn sale",
+                discount_type="PERCENTAGE",
+                value=25.0,
+                applicability="ENTIRE_ORDER",
+                target_categories=json.dumps([]),
+                target_products=json.dumps([]),
+                min_order_amount=0.0,
+                schedule_type="DATE_RANGE",
+                start_date="2026-09-01",
+                end_date="2026-09-20",
+                is_active=False,
                 created_by="Seed Demo"
             )
         ]

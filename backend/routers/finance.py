@@ -1,7 +1,8 @@
 import json
+import math
 from datetime import datetime, timezone
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -10,6 +11,7 @@ from ..models import Invoice, InvoiceItem, Product, DiscountRule
 from ..schemas import (
     CreateInvoiceRequest,
     InvoiceResponse,
+    PaginatedInvoiceResponse,
     EvaluateCartRequest,
     EvaluatedCartResponse,
     DashboardStats
@@ -41,7 +43,7 @@ def preview_invoice(payload: EvaluateCartRequest, db: Session = Depends(get_db))
     product_ids = [it.product_id for it in payload.items]
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {p.id: p for p in products}
-    active_rules = db.query(DiscountRule).filter(DiscountRule.is_active == True).all()
+    all_rules = db.query(DiscountRule).all()
 
     eval_dt = None
     if payload.simulated_date_iso:
@@ -54,8 +56,9 @@ def preview_invoice(payload: EvaluateCartRequest, db: Session = Depends(get_db))
     return DeterministicDiscountEngine.evaluate_cart(
         products_map=products_map,
         cart_items_input=cart_inputs,
-        active_rules=active_rules,
-        eval_datetime=eval_dt
+        active_rules=all_rules,
+        eval_datetime=eval_dt,
+        promo_code=payload.promo_code
     )
 
 
@@ -87,7 +90,7 @@ def create_invoice(payload: CreateInvoiceRequest, db: Session = Depends(get_db))
             )
 
     # 2. Evaluate discounts
-    active_rules = db.query(DiscountRule).filter(DiscountRule.is_active == True).all()
+    all_rules = db.query(DiscountRule).all()
     eval_dt = None
     if payload.simulated_date_iso:
         try:
@@ -99,8 +102,9 @@ def create_invoice(payload: CreateInvoiceRequest, db: Session = Depends(get_db))
     calc_result = DeterministicDiscountEngine.evaluate_cart(
         products_map=products_map,
         cart_items_input=cart_inputs,
-        active_rules=active_rules,
-        eval_datetime=eval_dt
+        active_rules=all_rules,
+        eval_datetime=eval_dt,
+        promo_code=payload.promo_code
     )
 
     # 3. Create Invoice Record
@@ -146,9 +150,11 @@ def create_invoice(payload: CreateInvoiceRequest, db: Session = Depends(get_db))
     return invoice
 
 
-@router.get("/invoices", response_model=List[InvoiceResponse])
+@router.get("/invoices", response_model=Union[PaginatedInvoiceResponse, List[InvoiceResponse]])
 def get_invoices(
     search: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number starting at 1"),
+    page_size: int = Query(10, ge=1, le=100, description="Invoices per page"),
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
@@ -160,6 +166,20 @@ def get_invoices(
             (Invoice.customer_name.ilike(s)) |
             (Invoice.customer_phone.ilike(s))
         )
+        
+    if page is not None:
+        total = query.count()
+        total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
+        offset = (page - 1) * page_size
+        items = query.order_by(Invoice.id.desc()).offset(offset).limit(page_size).all()
+        return PaginatedInvoiceResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+
     invoices = query.order_by(Invoice.id.desc()).limit(limit).all()
     return invoices
 

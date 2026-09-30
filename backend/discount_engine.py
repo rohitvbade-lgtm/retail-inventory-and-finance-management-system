@@ -49,7 +49,8 @@ class DeterministicDiscountEngine:
         products_map: Dict[int, Product],
         cart_items_input: List[Dict[str, Any]],
         active_rules: List[DiscountRule],
-        eval_datetime: Optional[datetime] = None
+        eval_datetime: Optional[datetime] = None,
+        promo_code: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Pure deterministic calculation:
@@ -152,6 +153,7 @@ class DeterministicDiscountEngine:
                         applied_discounts.append({
                             "rule_id": rule.id,
                             "rule_name": rule.name,
+                            "code": rule.get_effective_code(),
                             "description": rule.description or f"{val}{'%' if disc_type == 'PERCENTAGE' else '$'} on targeted products",
                             "discount_amount": rule_discount_total,
                             "applicability": "PRODUCT",
@@ -186,6 +188,7 @@ class DeterministicDiscountEngine:
                         applied_discounts.append({
                             "rule_id": rule.id,
                             "rule_name": rule.name,
+                            "code": rule.get_effective_code(),
                             "description": rule.description or f"{val}{'%' if disc_type == 'PERCENTAGE' else '$'} on {', '.join(rule.get_target_categories())}",
                             "discount_amount": rule_discount_total,
                             "applicability": "CATEGORY",
@@ -215,6 +218,7 @@ class DeterministicDiscountEngine:
                     applied_discounts.append({
                         "rule_id": rule.id,
                         "rule_name": rule.name,
+                        "code": rule.get_effective_code(),
                         "description": rule.description or f"{val}{'%' if disc_type == 'PERCENTAGE' else '$'} off entire order",
                         "discount_amount": order_disc,
                         "applicability": "ENTIRE_ORDER",
@@ -223,6 +227,30 @@ class DeterministicDiscountEngine:
 
         total_discount = min(total_discount, gross_subtotal)
         total_discount = round(total_discount, 2)
+
+        # Check promo code resolution
+        promo_code_status = None
+        if promo_code:
+            clean_code = promo_code.strip().upper()
+            was_applied = any(
+                (d.get("code") and d.get("code").upper() == clean_code) or
+                clean_code in (d.get("rule_name") or "").upper()
+                for d in applied_discounts
+            )
+            if was_applied:
+                promo_code_status = "APPLIED"
+            else:
+                matching_rule = next(
+                    (r for r in active_rules if (r.code and r.code.strip().upper() == clean_code) or r.get_effective_code() == clean_code or clean_code in r.name.upper()),
+                    None
+                )
+                if matching_rule:
+                    if matching_rule.is_expired or not matching_rule.is_active:
+                        promo_code_status = "EXPIRED"
+                    else:
+                        promo_code_status = "NOT_APPLICABLE"
+                else:
+                    promo_code_status = "INVALID"
 
         # Remove internal objects before returning
         clean_line_items = []
@@ -240,7 +268,6 @@ class DeterministicDiscountEngine:
             })
 
         net_total = round(gross_subtotal - total_discount, 2)
-        # Optional tax calculation (e.g. 5% standard tax or 0% depending on setup, here 0% default or configurable)
         tax = 0.0
 
         return {
@@ -249,6 +276,8 @@ class DeterministicDiscountEngine:
             "tax": tax,
             "total": round(net_total + tax, 2),
             "line_items": clean_line_items,
-            "applied_discounts": applied_discounts
+            "applied_discounts": applied_discounts,
+            "promo_code": promo_code,
+            "promo_code_status": promo_code_status
         }
 

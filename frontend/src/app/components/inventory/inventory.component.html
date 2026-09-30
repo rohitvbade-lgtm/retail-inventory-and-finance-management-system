@@ -36,9 +36,10 @@
         <input
           type="text"
           placeholder="Search product by name or SKU..."
-          [(ngModel)]="searchQuery"
-          (input)="onFilterChange()"
+          [ngModel]="searchQuery"
+          (ngModelChange)="onSearchInput($event)"
         />
+        <button *ngIf="searchQuery" class="clear-btn" (click)="clearSearch()">✕</button>
       </div>
 
       <select class="cat-select" [(ngModel)]="selectedCategory" (change)="onFilterChange()">
@@ -120,6 +121,27 @@
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- INVENTORY PAGINATION -->
+  <div class="pagination-bar" *ngIf="totalPages > 1 || totalProducts > 10">
+    <div class="page-size-selector">
+      <span>Show rows:</span>
+      <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+        <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+      </select>
+    </div>
+    <div class="pagination-nav">
+      <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        ← Previous
+      </button>
+      <span class="page-info">
+        Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong> ({{ totalProducts }} total items)
+      </span>
+      <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        Next →
+      </button>
+    </div>
   </div>
 
   <!-- ADD / EDIT PRODUCT MODAL -->

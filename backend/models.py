@@ -36,6 +36,8 @@ class DiscountRule(Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     
+    code = Column(String(100), nullable=True, index=True)
+    
     # "PERCENTAGE" or "FIXED_AMOUNT"
     discount_type = Column(String(50), nullable=False, default="PERCENTAGE")
     value = Column(Float, nullable=False, default=0.0)
@@ -58,6 +60,39 @@ class DiscountRule(Base):
     created_by = Column(String(200), nullable=True, default="System")
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    @property
+    def is_expired(self) -> bool:
+        if self.end_date:
+            try:
+                today = datetime.now().strftime("%Y-%m-%d")
+                return today > self.end_date
+            except Exception:
+                pass
+        return False
+
+    @property
+    def status(self) -> str:
+        if not self.is_active:
+            return "INACTIVE"
+        if self.is_expired:
+            return "EXPIRED"
+        if self.start_date:
+            try:
+                today = datetime.now().strftime("%Y-%m-%d")
+                if today < self.start_date:
+                    return "SCHEDULED"
+            except Exception:
+                pass
+        return "ACTIVE"
+
+    def get_effective_code(self) -> str:
+        if self.code and self.code.strip():
+            return self.code.strip().upper()
+        # Generate clean promo code from name or ID
+        clean = "".join(c for c in (self.name or "PROMO") if c.isalnum() or c in "-_").upper()
+        clean = clean[:10]
+        return f"{clean}{int(self.value) if self.value else ''}"
 
     def get_target_products(self):
         try:

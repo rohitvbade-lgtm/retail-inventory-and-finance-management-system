@@ -10,10 +10,10 @@
         <input
           type="text"
           placeholder="Search products by name or SKU..."
-          [(ngModel)]="searchQuery"
-          (input)="onSearchChange()"
+          [ngModel]="searchQuery"
+          (ngModelChange)="onSearchInput($event)"
         />
-        <button *ngIf="searchQuery" class="clear-btn" (click)="searchQuery = ''; onSearchChange()">✕</button>
+        <button *ngIf="searchQuery" class="clear-btn" (click)="clearSearch()">✕</button>
       </div>
 
       <!-- Category Filter Tabs -->
@@ -70,6 +70,19 @@
       <div *ngIf="products.length === 0" class="no-products">
         <p>No products found matching your search.</p>
       </div>
+    </div>
+
+    <!-- Catalog Pagination Bar -->
+    <div class="pagination-bar" *ngIf="totalPages > 1 && !loadingProducts">
+      <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        ← Previous
+      </button>
+      <span class="page-info">
+        Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong> ({{ totalProducts }} products)
+      </span>
+      <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        Next →
+      </button>
     </div>
 
     <ng-template #loadingTpl>
@@ -184,6 +197,47 @@
         </div>
       </div>
 
+      <!-- Coupon / Promo Code Input -->
+      <div class="promo-box" *ngIf="cart.length > 0">
+        <div class="promo-input-row">
+          <input
+            type="text"
+            placeholder="Promo code (e.g. DAIRY15)"
+            [(ngModel)]="enteredPromoCode"
+            (keyup.enter)="applyPromoCode()"
+          />
+          <button
+            class="btn-apply-promo"
+            [disabled]="!enteredPromoCode"
+            (click)="applyPromoCode()"
+          >
+            Apply
+          </button>
+          <button
+            *ngIf="appliedPromoCode"
+            class="btn-remove-promo"
+            (click)="removePromoCode()"
+            title="Remove promo code"
+          >
+            ✕
+          </button>
+        </div>
+        <div *ngIf="appliedPromoCode" class="promo-status-row">
+          <span *ngIf="promoCodeStatus === 'APPLIED'" class="promo-tag success">
+            ✓ Code <strong>{{ appliedPromoCode }}</strong> applied!
+          </span>
+          <span *ngIf="promoCodeStatus === 'NOT_APPLICABLE'" class="promo-tag warning">
+            ⚠️ Code <strong>{{ appliedPromoCode }}</strong> criteria not met
+          </span>
+          <span *ngIf="promoCodeStatus === 'EXPIRED'" class="promo-tag error">
+            ✕ Code <strong>{{ appliedPromoCode }}</strong> has expired
+          </span>
+          <span *ngIf="promoCodeStatus === 'INVALID'" class="promo-tag error">
+            ✕ Invalid promo code
+          </span>
+        </div>
+      </div>
+
       <!-- Deterministic Discount Engine Applied Summary -->
       <div *ngIf="cartPreview && cartPreview.applied_discounts.length > 0" class="discount-applied-card">
         <div class="disc-card-header">
@@ -199,7 +253,10 @@
         <div class="disc-items-list">
           <div *ngFor="let d of cartPreview.applied_discounts" class="disc-rule-row">
             <div class="disc-rule-name">
-              <strong>{{ d.rule_name }}</strong>
+              <div class="name-chip-wrap">
+                <strong>{{ d.rule_name }}</strong>
+                <span *ngIf="d.code" class="rule-code-chip">{{ d.code }}</span>
+              </div>
               <small>{{ d.description }}</small>
             </div>
             <span class="disc-rule-amount">-${{ d.discount_amount.toFixed(2) }}</span>
