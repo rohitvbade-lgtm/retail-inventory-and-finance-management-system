@@ -1,0 +1,50 @@
+<div class="app-layout">
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="app-navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">🏪</div>
+      <div class="brand-text">
+        <h2>APEX POS</h2>
+        <span>Retail & Finance Suite</span>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <a routerLink="/pos" routerLinkActive="active-tab" class="nav-item">
+        <span class="icon">🛒</span>
+        <span>POS & Invoicing</span>
+      </a>
+
+      <a routerLink="/inventory" routerLinkActive="active-tab" class="nav-item">
+        <span class="icon">📦</span>
+        <span>Inventory</span>
+        <span *ngIf="lowStockCount > 0" class="nav-alert-pill" title="{{ lowStockCount }} product(s) low on stock!">
+          {{ lowStockCount }}
+        </span>
+      </a>
+
+      <a routerLink="/finance" routerLinkActive="active-tab" class="nav-item">
+        <span class="icon">💰</span>
+        <span>Finance & Sales</span>
+      </a>
+
+      <a routerLink="/discounts" routerLinkActive="active-tab" class="nav-item highlight-tab">
+        <span class="icon">⚡</span>
+        <span>AI Discount Machine</span>
+      </a>
+    </nav>
+
+    <div class="nav-right">
+      <div class="system-status">
+        <span class="live-dot"></span>
+        <span>Engine Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW CONTENT -->
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
+

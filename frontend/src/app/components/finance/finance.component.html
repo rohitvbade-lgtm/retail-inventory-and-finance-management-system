@@ -1,0 +1,197 @@
+<div class="finance-container">
+  <!-- TOP METRIC KPI CARDS -->
+  <div class="metrics-grid">
+    <div class="metric-card revenue">
+      <div class="metric-icon-wrap">💵</div>
+      <div class="metric-data">
+        <span class="metric-label">Total Revenue</span>
+        <h3 class="metric-val">${{ stats.total_revenue.toFixed(2) }}</h3>
+        <span class="metric-sub">From {{ stats.total_invoices }} paid invoices</span>
+      </div>
+    </div>
+
+    <div class="metric-card invoices">
+      <div class="metric-icon-wrap">🧾</div>
+      <div class="metric-data">
+        <span class="metric-label">Invoices Issued</span>
+        <h3 class="metric-val">{{ stats.total_invoices }}</h3>
+        <span class="metric-sub">Counter customer sales</span>
+      </div>
+    </div>
+
+    <div class="metric-card discounts">
+      <div class="metric-icon-wrap">🎁</div>
+      <div class="metric-data">
+        <span class="metric-label">Discounts Saved by Customers</span>
+        <h3 class="metric-val">${{ stats.total_discounts_given.toFixed(2) }}</h3>
+        <span class="metric-sub">{{ stats.active_discounts_count }} active AI rules</span>
+      </div>
+    </div>
+
+    <div class="metric-card inventory">
+      <div class="metric-icon-wrap">⚠️</div>
+      <div class="metric-data">
+        <span class="metric-label">Low Stock Alerts</span>
+        <h3 class="metric-val">{{ stats.low_stock_count }}</h3>
+        <span class="metric-sub">Out of {{ stats.total_products }} total catalog items</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVOICES HISTORY & SEARCH -->
+  <div class="invoices-section">
+    <div class="invoices-header">
+      <div class="header-left">
+        <h3>Sales & Invoices History</h3>
+        <p>Complete record of receipts issued at the counter</p>
+      </div>
+
+      <div class="search-input-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search by invoice # or customer..."
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+        />
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table class="invoices-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Date & Time</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Subtotal</th>
+            <th>Discount</th>
+            <th>Total Paid</th>
+            <th>Payment</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let inv of invoices">
+            <td class="font-mono">
+              <strong>{{ inv.invoice_number }}</strong>
+            </td>
+            <td>{{ inv.created_at | date:'short' }}</td>
+            <td>
+              <div>{{ inv.customer_name }}</div>
+              <small *ngIf="inv.customer_phone" class="phone-sub">{{ inv.customer_phone }}</small>
+            </td>
+            <td>{{ inv.items.length || 0 }} item(s)</td>
+            <td>${{ inv.subtotal.toFixed(2) }}</td>
+            <td>
+              <span *ngIf="inv.discount_total > 0" class="discount-badge">
+                -${{ inv.discount_total.toFixed(2) }}
+              </span>
+              <span *ngIf="inv.discount_total === 0" class="no-discount">-</span>
+            </td>
+            <td class="total-paid-cell">${{ inv.total.toFixed(2) }}</td>
+            <td>
+              <span class="payment-badge">{{ inv.payment_method }}</span>
+            </td>
+            <td class="text-right">
+              <button class="btn-view-receipt" (click)="viewInvoice(inv)">
+                👁️ View Receipt
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="invoices.length === 0 && !loadingInvoices">
+            <td colspan="9" class="no-records">No invoice records found. Create one from the POS counter!</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW INVOICE RECEIPT MODAL -->
+  <div class="modal-backdrop" *ngIf="showInvoiceModal && selectedInvoice">
+    <div class="receipt-modal">
+      <div class="receipt-paper" id="printable-receipt">
+        <div class="receipt-header">
+          <div class="shop-logo">🏪 APEX RETAIL STORE</div>
+          <p class="receipt-addr">124 Commercial Avenue, Downtown</p>
+          <p class="receipt-addr">Tel: (555) 987-6543 | Tax ID: RET-884920</p>
+          <div class="divider-dashed"></div>
+          <div class="receipt-meta">
+            <div><strong>Invoice:</strong> {{ selectedInvoice.invoice_number }}</div>
+            <div><strong>Date:</strong> {{ selectedInvoice.created_at | date:'medium' }}</div>
+            <div><strong>Customer:</strong> {{ selectedInvoice.customer_name }}</div>
+            <div><strong>Payment:</strong> {{ selectedInvoice.payment_method }}</div>
+          </div>
+        </div>
+
+        <div class="divider-dashed"></div>
+
+        <table class="receipt-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let itm of selectedInvoice.items">
+              <td>
+                <div>{{ itm.product_name }}</div>
+                <small *ngIf="itm.applied_discount_name" class="receipt-discount-tag">
+                  🎁 {{ itm.applied_discount_name }} (-${{ itm.discount_amount.toFixed(2) }})
+                </small>
+              </td>
+              <td>{{ itm.quantity }}</td>
+              <td>${{ itm.unit_price.toFixed(2) }}</td>
+              <td class="text-right">${{ itm.item_total.toFixed(2) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="divider-dashed"></div>
+
+        <div class="receipt-totals">
+          <div class="receipt-row">
+            <span>Subtotal:</span>
+            <span>${{ selectedInvoice.subtotal.toFixed(2) }}</span>
+          </div>
+          <div class="receipt-row discount-text" *ngIf="selectedInvoice.discount_total > 0">
+            <span>Total Discounts:</span>
+            <span>-${{ selectedInvoice.discount_total.toFixed(2) }}</span>
+          </div>
+          <div class="receipt-row total-paid">
+            <span>TOTAL PAID:</span>
+            <span>${{ selectedInvoice.total.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="parseDiscountBreakdown(selectedInvoice.discount_breakdown).length > 0" class="receipt-rule-breakdown">
+          <div class="divider-dashed"></div>
+          <div class="breakdown-title">Discounts Applied by Machine:</div>
+          <div *ngFor="let d of parseDiscountBreakdown(selectedInvoice.discount_breakdown)" class="breakdown-line">
+            <span>• {{ d.rule_name }}</span>
+            <span>-${{ d.discount_amount.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div class="divider-dashed"></div>
+        <div class="receipt-footer">
+          <p>Thank you for shopping with us!</p>
+          <p>Please keep this invoice for returns or exchanges.</p>
+        </div>
+      </div>
+
+      <div class="modal-actions no-print">
+        <button class="btn-print" (click)="printReceipt()">🖨️ Print Receipt</button>
+        <button class="btn-close-modal" (click)="closeInvoiceModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+

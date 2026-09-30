@@ -1,0 +1,249 @@
+<div class="discounts-layout">
+  <!-- LEFT: AI DISCOUNT MACHINE CHAT -->
+  <div class="chat-section">
+    <div class="chat-card">
+      <div class="chat-header">
+        <div class="bot-identity">
+          <div class="bot-avatar">🤖</div>
+          <div>
+            <h3>AI Discount Machine</h3>
+            <span class="bot-status">
+              <span class="status-dot"></span> Conversational Rule Generator
+            </span>
+          </div>
+        </div>
+
+        <button class="btn-api-toggle" (click)="showApiKeyInput = !showApiKeyInput">
+          ⚙️ {{ showApiKeyInput ? 'Hide Settings' : 'AI Settings' }}
+        </button>
+      </div>
+
+      <!-- Optional API Key Settings -->
+      <div *ngIf="showApiKeyInput" class="api-key-panel">
+        <label>Google Gemini API Key (Optional)</label>
+        <div class="api-key-row">
+          <input
+            type="password"
+            placeholder="AIzaSy... (Leave empty to use built-in deterministic NLU parser)"
+            [(ngModel)]="apiKey"
+            (change)="saveApiKey()"
+          />
+          <button class="btn-save-key" (click)="saveApiKey()">Save</button>
+        </div>
+        <small class="api-note">
+          💡 The system includes a built-in deterministic semantic parser that runs offline without an API key. Supplying a Gemini API key enables full LLM reasoning.
+        </small>
+      </div>
+
+      <!-- Chat Messages Scroll Container -->
+      <div class="chat-messages" id="chat-scroll-container">
+        <div *ngFor="let msg of chatMessages" class="message-row" [class.user-row]="msg.role === 'user'">
+          <div class="msg-avatar">
+            {{ msg.role === 'user' ? '👤' : '🤖' }}
+          </div>
+
+          <div class="msg-bubble">
+            <div class="msg-content">{{ msg.content }}</div>
+
+            <!-- Structured Discount Rule Card (if assistant created a rule) -->
+            <div *ngIf="msg.structured_action" class="rule-preview-card">
+              <div class="rule-card-header">
+                <span class="preview-badge">✨ NEW RULE ACTIVATED</span>
+                <span class="preview-type">
+                  {{ msg.structured_action.discount_type === 'PERCENTAGE' ? (msg.structured_action.value + '% OFF') : ('$' + msg.structured_action.value + ' OFF') }}
+                </span>
+              </div>
+              <h4 class="preview-title">{{ msg.structured_action.name }}</h4>
+              <div class="preview-meta">
+                <div>
+                  <strong>Scope:</strong> {{ msg.structured_action.applicability }}
+                  <span *ngIf="msg.structured_action.target_categories?.length > 0">
+                    ({{ msg.structured_action.target_categories.join(', ') }})
+                  </span>
+                  <span *ngIf="msg.structured_action.target_products?.length > 0">
+                    ({{ msg.structured_action.target_products.join(', ') }})
+                  </span>
+                </div>
+                <div><strong>Schedule:</strong> {{ msg.structured_action.schedule_type }}</div>
+                <div *ngIf="msg.structured_action.min_order_amount > 0">
+                  <strong>Min Spend:</strong> ${{ msg.structured_action.min_order_amount }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="sendingMessage" class="message-row">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble typing-indicator">
+            <span></span><span></span><span></span>
+            <small>AI is interpreting prompt and configuring discount objects...</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggested Prompts Bar -->
+      <div class="prompts-suggestion-bar">
+        <span class="prompt-hint">Quick Prompts:</span>
+        <div class="suggestion-chips">
+          <button
+            *ngFor="let p of suggestedPrompts"
+            class="chip-prompt"
+            (click)="usePrompt(p)"
+          >
+            "{{ p }}"
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Input Field -->
+      <div class="chat-input-box">
+        <input
+          type="text"
+          placeholder="E.g., Give 15% discount on all dairy products this weekend..."
+          [(ngModel)]="promptInput"
+          (keyup.enter)="sendPrompt()"
+          [disabled]="sendingMessage"
+        />
+        <button
+          class="btn-send-prompt"
+          [disabled]="!promptInput.trim() || sendingMessage"
+          (click)="sendPrompt()"
+        >
+          Send Command
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: RULES MANAGER & DETERMINISTIC ENGINE SIMULATOR -->
+  <div class="management-section">
+    <!-- Active Rules Card -->
+    <div class="rules-card">
+      <div class="rules-card-header">
+        <div class="title-wrap">
+          <h3>Active Discount Rules</h3>
+          <span class="rules-count-badge">{{ rules.length }} Total Rules</span>
+        </div>
+        <button class="btn-refresh" (click)="loadRules()">↻ Refresh</button>
+      </div>
+
+      <div class="rules-list">
+        <div *ngFor="let r of rules" class="rule-item" [class.inactive]="!r.is_active">
+          <div class="rule-top">
+            <div class="rule-info">
+              <span class="rule-name">{{ r.name }}</span>
+              <p class="rule-desc">{{ r.description }}</p>
+            </div>
+            <div class="rule-action-controls">
+              <label class="switch" title="Toggle active status">
+                <input type="checkbox" [checked]="r.is_active" (change)="toggleRule(r)" />
+                <span class="slider round"></span>
+              </label>
+              <button class="btn-delete-rule" (click)="deleteRule(r)" title="Delete rule">✕</button>
+            </div>
+          </div>
+
+          <div class="rule-badges">
+            <span class="badge-value">
+              {{ r.discount_type === 'PERCENTAGE' ? (r.value + '% OFF') : ('$' + r.value + ' OFF') }}
+            </span>
+            <span class="badge-scope">{{ r.applicability }}</span>
+            <span class="badge-schedule" [class.weekend]="r.schedule_type === 'WEEKEND'" [class.weekday]="r.schedule_type === 'WEEKDAY'">
+              ⏰ {{ r.schedule_type }}
+            </span>
+            <span *ngIf="r.min_order_amount > 0" class="badge-min">
+              Min ${{ r.min_order_amount }}
+            </span>
+          </div>
+
+          <div class="rule-created-by">
+            <small>{{ r.created_by }}</small>
+          </div>
+        </div>
+
+        <div *ngIf="rules.length === 0 && !loadingRules" class="empty-rules">
+          <p>No discount rules configured yet. Type a prompt on the left to create one!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deterministic Engine Sandbox / Test Simulator -->
+    <div class="sandbox-card">
+      <div class="sandbox-header">
+        <div>
+          <h4>🔬 Discount Engine Simulator</h4>
+          <p>Test how the deterministic engine evaluates active rules against a basket</p>
+        </div>
+        <button class="btn-run-sim" [disabled]="evaluatingSim" (click)="runSimulation()">
+          {{ evaluatingSim ? 'Calculating...' : 'Run Test' }}
+        </button>
+      </div>
+
+      <div class="sandbox-controls">
+        <div class="control-group">
+          <label>Simulation Day</label>
+          <div class="sim-day-radios">
+            <label>
+              <input type="radio" name="simDay" value="WEEKEND" [(ngModel)]="simSchedule" />
+              Weekend (Sat)
+            </label>
+            <label>
+              <input type="radio" name="simDay" value="WEEKDAY" [(ngModel)]="simSchedule" />
+              Weekday (Wed)
+            </label>
+            <label>
+              <input type="radio" name="simDay" value="ALWAYS" [(ngModel)]="simSchedule" />
+              Today
+            </label>
+          </div>
+        </div>
+
+        <!-- Sample Basket Selection -->
+        <div class="basket-selection">
+          <label>Sample Cart Items (Adjust quantities)</label>
+          <div class="basket-items-grid">
+            <div *ngFor="let p of products.slice(0, 6)" class="basket-item-row">
+              <span class="basket-item-name">{{ p.name }} (${{ p.price.toFixed(2) }})</span>
+              <div class="basket-qty-input">
+                <button
+                  type="button"
+                  (click)="setSimQty(p.id, getSimQty(p.id) - 1)"
+                  [disabled]="getSimQty(p.id) <= 0"
+                >
+                  -
+                </button>
+                <span>{{ getSimQty(p.id) }}</span>
+                <button type="button" (click)="setSimQty(p.id, getSimQty(p.id) + 1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simulation Result Output -->
+      <div *ngIf="simResult" class="sim-results-box">
+        <div class="sim-totals-row">
+          <div>Subtotal: <b>${{ simResult.subtotal.toFixed(2) }}</b></div>
+          <div class="sim-discount-highlight">
+            Discount Applied: <b>-${{ simResult.total_discount.toFixed(2) }}</b>
+          </div>
+          <div>Net Total: <b>${{ simResult.total.toFixed(2) }}</b></div>
+        </div>
+
+        <div *ngIf="simResult.applied_discounts.length > 0" class="sim-rules-breakdown">
+          <strong>Applied Rules by Engine:</strong>
+          <ul>
+            <li *ngFor="let d of simResult.applied_discounts">
+              <b>{{ d.rule_name }}</b> ({{ d.applied_to }}): -${{ d.discount_amount.toFixed(2) }}
+            </li>
+          </ul>
+        </div>
+        <div *ngIf="simResult.applied_discounts.length === 0" class="no-sim-discount">
+          No active discount rules qualified for this basket and day combination.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
